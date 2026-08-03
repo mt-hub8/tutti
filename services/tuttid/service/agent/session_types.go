@@ -129,6 +129,7 @@ type TuttiModeActivationPort interface {
 
 type SubmitClaimStore interface {
 	PrepareSubmitClaim(context.Context, agentactivitybiz.SubmitClaimPrepare) (agentactivitybiz.SubmitClaim, bool, error)
+	SetSubmitClaimCapabilityPlan(context.Context, string, string, string, string, int64) (agentactivitybiz.SubmitClaim, bool, error)
 	GetSubmitClaim(context.Context, string, string, string) (agentactivitybiz.SubmitClaim, bool, error)
 	AcceptSubmitClaim(context.Context, string, string, string, string, int64) (agentactivitybiz.SubmitClaim, bool, error)
 	DeleteSubmitClaim(context.Context, string, string, string) (bool, error)
@@ -259,6 +260,9 @@ type Session struct {
 	Metadata             agentactivitybiz.SessionMetadata
 	Isolation            *SessionIsolation
 	Warnings             []SessionWarning
+	// TurnCapabilityStates is a provider-neutral read projection of durable,
+	// session-scoped capability bindings. It is never catalog or target state.
+	TurnCapabilityStates []TurnCapabilityState
 	// Protocol v2 turn state (agent-gui refactor plan): the session keeps an
 	// activeTurnId reference; phase/outcome/error live on the turn entity.
 	ActiveTurnID           string
@@ -269,6 +273,11 @@ type Session struct {
 	TuttiModeActivation    *tuttimodeactivationbiz.Activation
 	LifecycleCapabilities  SessionLifecycleCapabilities
 	ForkedFrom             *SessionForkLineage
+}
+
+type TurnCapabilityState struct {
+	Semantic string
+	State    string
 }
 
 // SessionForkLineage is the durable provenance of a user-initiated root
@@ -630,6 +639,7 @@ type CreateSessionInput struct {
 	CommandCapabilityProjection *runtimeprep.CommandCapabilityProjection
 	InitialContent              []PromptContentBlock
 	InitialDisplayPrompt        string
+	TurnCapabilityInvocation    *agenthost.TurnCapabilityInvocation
 	Metadata                    map[string]any
 	ClientSubmitID              string
 	Title                       *string

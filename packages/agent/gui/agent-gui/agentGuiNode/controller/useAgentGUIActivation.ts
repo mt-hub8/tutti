@@ -1,9 +1,11 @@
 import {
   selectSessionActivationPresentations,
+  selectLatestActivationForSession,
   sessionActivationPresentationMapsEqual,
   type AgentActivityCapabilityReference,
   type AgentActivityInitialGoalControl,
   type AgentActivityInitialTuttiModeActivation,
+  type AgentActivityTurnCapabilityInvocation,
   type AgentActivitySubmitDiagnostics,
   type AgentActivityRailPlacement,
   type PendingActivationIntentRecord,
@@ -22,6 +24,7 @@ type AgentGUILiveState = "inactive" | "activating" | "active" | "failed";
 interface AgentGUIActivateInputBase {
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   cwd?: string;
   initialContent?: AgentPromptContentBlock[];
   initialTurnExpected?: boolean;
@@ -129,6 +132,9 @@ export function useAgentGUIActivation({
         ...(input.capabilityRefs?.length
           ? { capabilityRefs: input.capabilityRefs }
           : {}),
+        ...(input.turnCapabilityInvocation
+          ? { turnCapabilityInvocation: input.turnCapabilityInvocation }
+          : {}),
         ...(input.initialContent ? { content: input.initialContent } : {}),
         ...(input.cwd !== undefined ? { cwd: input.cwd } : {}),
         expiresAtUnixMs: requestedAtUnixMs + ACTIVATION_EXPIRY_MS,
@@ -213,6 +219,69 @@ export function useAgentGUIActivation({
     [engine, workspaceId]
   );
 
+  // A pre-Exec setup outcome leaves the original activation record intact.
+  // Retrying that exact record is the only safe way to preserve its immutable
+  // content, display prompt, capability invocation, and client submit id for a
+  // new-conversation capability turn.
+  const retryFailedActivation = useCallback(
+    (agentSessionId: string): boolean => {
+      const normalized = agentSessionId.trim();
+      if (!normalized) return false;
+      const record = selectLatestActivationForSession(
+        engine.getSnapshot(),
+        normalized
+      );
+      if (!record || record.status !== "failed") return false;
+      const shared = {
+        agentSessionId: record.agentSessionId,
+        ...(record.capabilityRefs?.length
+          ? { capabilityRefs: [...record.capabilityRefs] }
+          : {}),
+        ...(record.turnCapabilityInvocation
+          ? {
+              turnCapabilityInvocation: {
+                ...record.turnCapabilityInvocation
+              }
+            }
+          : {}),
+        content: [...record.content],
+        cwd: record.cwd,
+        initialDisplayPrompt: record.displayPrompt,
+        initialGoalControl: record.initialGoalControl,
+        initialTurnExpected: record.initialTurnExpected,
+        railPlacement: record.railPlacement,
+        runtimeContent: record.runtimeContent
+          ? [...record.runtimeContent]
+          : undefined,
+        settings: activationRetrySettings(record.settings),
+        submitDiagnostics: record.submitDiagnostics
+          ? { ...record.submitDiagnostics }
+          : undefined,
+        title: record.title ?? undefined,
+        visible: true
+      };
+      if (record.mode === "new") {
+        activate({
+          ...shared,
+          agentTargetId: record.agentTargetId,
+          clientSubmitId: record.clientSubmitId,
+          initialTuttiModeActivation: record.initialTuttiModeActivation,
+          mode: "new",
+          optimisticTitle: record.optimisticTitle,
+          tuttiModeDraftKey: record.tuttiModeDraftKey
+        });
+      } else {
+        activate({
+          ...shared,
+          agentTargetId: record.agentTargetId,
+          mode: "existing"
+        });
+      }
+      return true;
+    },
+    [activate, engine]
+  );
+
   const markFailed = useCallback(
     (agentSessionId: string, error: unknown): void => {
       const normalized = agentSessionId.trim();
@@ -270,6 +339,7 @@ export function useAgentGUIActivation({
       activate,
       clearFailure,
       markFailed,
+      retryFailedActivation,
       unactivate,
       stateFor,
       errorFor,
@@ -281,8 +351,30 @@ export function useAgentGUIActivation({
       codeFor,
       errorFor,
       markFailed,
+      retryFailedActivation,
       stateFor,
       unactivate
     ]
   );
+}
+
+function activationRetrySettings(
+  settings: PendingActivationIntentRecord["settings"]
+): AgentSessionComposerSettings | undefined {
+  if (!settings) return undefined;
+  return {
+    ...(settings.model == null ? {} : { model: settings.model }),
+    ...(settings.permissionModeId == null
+      ? {}
+      : { permissionModeId: settings.permissionModeId }),
+    ...(settings.planMode == null ? {} : { planMode: settings.planMode }),
+    ...(settings.browserUse == null ? {} : { browserUse: settings.browserUse }),
+    ...(settings.computerUse == null
+      ? {}
+      : { computerUse: settings.computerUse }),
+    ...(settings.reasoningEffort == null
+      ? {}
+      : { reasoningEffort: settings.reasoningEffort }),
+    ...(settings.speed == null ? {} : { speed: settings.speed })
+  };
 }

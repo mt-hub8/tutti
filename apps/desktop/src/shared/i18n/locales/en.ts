@@ -1395,7 +1395,30 @@ export const en = {
       invalid_workbench_snapshot:
         "That workbench state could not be saved because the snapshot is invalid.",
       agent: {
-        prompt_image_unsupported: "This agent does not support image input yet."
+        prompt_image_unsupported:
+          "This agent does not support image input yet.",
+        turn_capability_plugin_not_ready:
+          "Install or enable this capability in the provider, then send the queued task again.",
+        turn_capability_plugin_not_installed:
+          "Install this capability in the provider, then send the queued task again.",
+        turn_capability_plugin_disabled:
+          "Enable this capability in the provider, then send the queued task again.",
+        turn_capability_plugin_blocked:
+          "This capability is blocked by the provider and cannot be used in this conversation.",
+        turn_capability_consent_required:
+          "Confirm access for this conversation before sending the queued task again.",
+        turn_capability_refresh_unsupported:
+          "This capability cannot be prepared by the current runtime. Update or configure the provider, then try again.",
+        turn_capability_refresh_failed:
+          "This capability could not be refreshed. Check the provider, then send the queued task again.",
+        turn_capability_runtime_busy:
+          "This capability is busy. Finish the current work, then send the queued task again.",
+        turn_capability_availability_unknown:
+          "This capability is not confirmed as ready. Check the provider, then send the queued task again.",
+        turn_capability_runtime_unavailable:
+          "The current runtime is unavailable. Reconnect it, then send the queued task again.",
+        turn_capability_runtime_not_ready:
+          "This capability is not ready in the current runtime. Check the provider, then send the queued task again."
       },
       malformed_request: "We couldn't understand that request.",
       missing_workspace_id: "Choose a workspace before trying again.",

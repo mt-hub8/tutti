@@ -271,13 +271,38 @@ export class AgentSessionActivityEventRecorder {
 function payloadWithoutCommonFields(
   value: object
 ): Readonly<Record<string, unknown>> {
-  const payload = cloneValue(value) as Record<string, unknown>;
+  const payload = sanitizeRecordingPayload(cloneValue(value)) as Record<
+    string,
+    unknown
+  >;
   delete payload.agentSessionId;
   delete payload.commandId;
   delete payload.correlationId;
   delete payload.type;
   delete payload.workspaceId;
   return payload;
+}
+
+const recordingPrivateCapabilityKeys = new Set([
+  "turncapabilityinvocation",
+  "consent",
+  "authorization",
+  "authorizecodexnativecomputeruse"
+]);
+
+function sanitizeRecordingPayload(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeRecordingPayload);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (recordingPrivateCapabilityKeys.has(key.toLowerCase())) continue;
+    result[key] = sanitizeRecordingPayload(child);
+  }
+  return result;
 }
 
 function commandCorrelationId(command: EngineExternalCommand): string | null {

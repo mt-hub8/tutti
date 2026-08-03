@@ -462,6 +462,10 @@ func (s *SQLiteStore) GetSubmitClaim(ctx context.Context, workspaceID, agentSess
 	return s.agentStore().GetSubmitClaim(ctx, workspaceID, agentSessionID, clientSubmitID)
 }
 
+func (s *SQLiteStore) SetSubmitClaimCapabilityPlan(ctx context.Context, workspaceID, agentSessionID, clientSubmitID, planJSON string, nowUnixMS int64) (agentactivitybiz.SubmitClaim, bool, error) {
+	return s.agentStore().SetSubmitClaimCapabilityPlan(ctx, workspaceID, agentSessionID, clientSubmitID, planJSON, nowUnixMS)
+}
+
 func (s *SQLiteStore) AcceptSubmitClaim(ctx context.Context, workspaceID, agentSessionID, clientSubmitID, turnID string, nowUnixMS int64) (agentactivitybiz.SubmitClaim, bool, error) {
 	return s.agentStore().AcceptSubmitClaim(ctx, workspaceID, agentSessionID, clientSubmitID, turnID, nowUnixMS)
 }

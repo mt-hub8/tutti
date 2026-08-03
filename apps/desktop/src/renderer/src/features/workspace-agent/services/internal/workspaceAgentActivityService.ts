@@ -607,6 +607,7 @@ export class WorkspaceAgentActivityService
         agentSessionId: requestedAgentSessionId,
         agentTargetId: input.agentTargetId,
         capabilityRefs: input.capabilityRefs ?? null,
+        turnCapabilityInvocation: input.turnCapabilityInvocation,
         cwd: resolvedCwd?.cwd ?? null,
         initialContent: input.initialContent ?? [],
         initialDisplayPrompt: input.initialDisplayPrompt ?? null,

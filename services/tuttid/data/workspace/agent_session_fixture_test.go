@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	agentsessionstore "github.com/tutti-os/tutti/packages/agent/daemon/activity"
@@ -79,6 +80,13 @@ func TestExportAgentSessionGraphExcludesUnrelatedSentinelSession(t *testing.T) {
 	if rootID != "root-session" {
 		t.Fatalf("root id = %q", rootID)
 	}
+	if _, err := store.writeDB.ExecContext(ctx, `
+UPDATE workspace_agent_sessions
+SET internal_runtime_context_json = ?
+WHERE workspace_id = ? AND agent_session_id = ?
+`, `{"semantic":"computerUse","loaded":true,"authorized":true,"turnCapabilityInvocation":{"consent":"explicitSession"},"AuthorizeCodexNativeComputerUse":true,"userText":"consent explicitSession is ordinary text"}`, workspaceID, rootID); err != nil {
+		t.Fatal(err)
+	}
 	destination := filepath.Join(t.TempDir(), "state.jsonl")
 	if err := store.ExportAgentSessionGraph(ctx, workspaceID, rootID, destination); err != nil {
 		t.Fatal(err)
@@ -97,6 +105,23 @@ func TestExportAgentSessionGraphExcludesUnrelatedSentinelSession(t *testing.T) {
 		}
 		if record.Table == "workspace_agent_sessions" {
 			sessionIDs = append(sessionIDs, record.Values["agent_session_id"].(string))
+			if record.Values["agent_session_id"] == rootID {
+				runtimeContext := record.Values["internal_runtime_context_json"].(string)
+				var exportedContext map[string]any
+				if err := json.Unmarshal([]byte(runtimeContext), &exportedContext); err != nil {
+					t.Fatal(err)
+				}
+				for _, forbidden := range []string{"turnCapabilityInvocation", "explicitSession", "AuthorizeCodexNativeComputerUse"} {
+					if _, found := exportedContext[forbidden]; found {
+						t.Fatalf("portable fixture retained structured %q: %s", forbidden, runtimeContext)
+					}
+				}
+				for _, retained := range []string{"computerUse", "loaded", "authorized", "consent explicitSession is ordinary text"} {
+					if !strings.Contains(runtimeContext, retained) {
+						t.Fatalf("portable fixture lost %q: %s", retained, runtimeContext)
+					}
+				}
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {

@@ -1,6 +1,7 @@
 // Canonical tuttid DTO-to-activity composer-options mapper.
 import type {
   AgentActivityComposerCapabilityOption,
+  AgentActivityComposerCapabilityPresentation,
   AgentActivityComposerOptions,
   AgentActivityComposerPermissionConfig,
   AgentActivityComposerSettingOption,
@@ -29,6 +30,7 @@ export function agentActivityComposerOptionsFromTuttidResult(
   const capabilityCatalog = capabilityOptionsFromValue(
     result.capabilityCatalog
   );
+  const behavior = composerBehaviorFromValue(result.behavior);
   return {
     provider: normalizeText(result.provider) ?? provider,
     capabilities: sessionCapabilitiesFromValue(result.capabilities),
@@ -50,7 +52,10 @@ export function agentActivityComposerOptionsFromTuttidResult(
     skills: skillsFromResult,
     commands: commandOptionsFromValue(result.commands),
     capabilityCatalog,
-    behavior: composerBehaviorFromValue(result.behavior),
+    capabilityPresentations: capabilityPresentationsFromValue(
+      result.reservedTurnCapabilityAliases
+    ),
+    behavior,
     slashCommandPolicy: slashCommandPolicyFromValue(result.slashCommandPolicy),
     modelPlan: composerModelPlanFromValue(runtimeContext.modelPlan),
     modelConfiguration: composerModelConfigurationFromValue(
@@ -463,6 +468,12 @@ function capabilityOptionsFromValue(
     const trigger = normalizeText(record.trigger);
     const path = normalizeText(record.path);
     const semantic = normalizeCapabilitySemantic(record.semantic);
+    const invocationScope = normalizeCapabilityInvocationScope(
+      record.invocationScope
+    );
+    const consentRequirement = normalizeCapabilityConsentRequirement(
+      record.consentRequirement
+    );
     options.push({
       id,
       kind,
@@ -477,10 +488,65 @@ function capabilityOptionsFromValue(
       ...(toolName ? { toolName } : {}),
       ...(trigger ? { trigger } : {}),
       ...(path ? { path } : {}),
-      ...(semantic ? { semantic } : {})
+      ...(semantic ? { semantic } : {}),
+      ...(invocationScope ? { invocationScope } : {}),
+      ...(consentRequirement ? { consentRequirement } : {})
     });
   }
   return options;
+}
+
+function capabilityPresentationsFromValue(
+  value: unknown
+): AgentActivityComposerCapabilityPresentation[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((raw) => {
+    const capability = recordValue(raw);
+    const trigger = normalizeText(capability.alias);
+    const semantic = normalizeCapabilitySemantic(capability.semantic);
+    const name = normalizeText(capability.name);
+    const label = normalizeText(capability.label);
+    const status = normalizeCapabilityStatus(capability.status);
+    const invocation = normalizeCapabilityInvocation(capability.invocation);
+    const invocationScope = normalizeCapabilityInvocationScope(
+      capability.invocationScope
+    );
+    if (
+      !trigger?.startsWith("/") ||
+      !semantic ||
+      !name ||
+      !label ||
+      !status ||
+      !invocation ||
+      !invocationScope ||
+      seen.has(semantic)
+    ) {
+      return [];
+    }
+    seen.add(semantic);
+    const description = normalizeText(capability.description);
+    const reason = normalizeText(capability.reason);
+    const nextAction = normalizeCapabilityNextAction(capability.nextAction);
+    const consentRequirement = normalizeCapabilityConsentRequirement(
+      capability.consentRequirement
+    );
+    return [
+      {
+        semantic,
+        name,
+        label,
+        trigger,
+        status,
+        invocation,
+        invocationScope,
+        ...(consentRequirement ? { consentRequirement } : {}),
+        ...(description ? { description } : {}),
+        ...(reason ? { reason } : {}),
+        ...(nextAction ? { nextAction } : {})
+      }
+    ];
+  });
 }
 
 function normalizeCapabilitySemantic(
@@ -492,6 +558,40 @@ function normalizeCapabilitySemantic(
     case "browserUse":
     case "computerUse":
       return normalized;
+    default:
+      return null;
+  }
+}
+
+function normalizeCapabilityInvocationScope(
+  value: unknown
+): "createOnly" | "turn" | null {
+  switch (normalizeText(value)) {
+    case "createOnly":
+    case "turn":
+      return normalizeText(value) as "createOnly" | "turn";
+    default:
+      return null;
+  }
+}
+
+function normalizeCapabilityConsentRequirement(
+  value: unknown
+): "explicitSession" | null {
+  return normalizeText(value) === "explicitSession" ? "explicitSession" : null;
+}
+
+function normalizeCapabilityNextAction(
+  value: unknown
+): AgentActivityComposerCapabilityPresentation["nextAction"] | null {
+  switch (normalizeText(value)) {
+    case "use":
+    case "setup":
+    case "retry":
+    case "blocked":
+      return normalizeText(value) as NonNullable<
+        AgentActivityComposerCapabilityPresentation["nextAction"]
+      >;
     default:
       return null;
   }
@@ -520,9 +620,13 @@ function normalizeCapabilityStatus(
   switch (normalized) {
     case "available":
     case "disabled":
+    case "disabledByAdmin":
     case "authRequired":
     case "setupRequired":
+    case "notInstalled":
     case "unsupported":
+    case "unknown":
+    case "error":
       return normalized;
     default:
       return null;

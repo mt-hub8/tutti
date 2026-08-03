@@ -449,6 +449,13 @@ func (a *CodexAppServerAdapter) hasLiveSessionWork(agentSessionID string) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	appSession := a.sessions[strings.TrimSpace(agentSessionID)]
+	return codexAppServerSessionHasLiveWork(appSession)
+}
+
+// codexAppServerSessionHasLiveWork is called while the adapter mutex is held.
+// It is shared by submit availability and capability refresh so a runtime
+// mutation can never pass a different quiescence test than normal submission.
+func codexAppServerSessionHasLiveWork(appSession *codexAppServerSession) bool {
 	if appSession == nil {
 		return false
 	}

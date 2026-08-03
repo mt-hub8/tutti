@@ -6,6 +6,7 @@ import type {
   AgentActivitySessionSettings,
   AgentActivitySubmitDiagnostics,
   AgentActivitySubmitSettingsPatch,
+  AgentActivityTurnCapabilityInvocation,
   AgentPromptContentBlock
 } from "../types.ts";
 import type { AgentActivitySessionMessageWindow } from "../messageWindow.types.ts";
@@ -33,6 +34,7 @@ export function isPendingActivationViable(
 interface PendingActivationIntentRecordBase {
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   content: readonly AgentPromptContentBlock[];
   displayPrompt?: string;
   cwd: string;
@@ -48,6 +50,7 @@ interface PendingActivationIntentRecordBase {
   settingsUpdateStatus?: "failed" | "inFlight" | "unknown";
   requestedAtUnixMs: number;
   requestId: string;
+  runtimeContent?: readonly AgentPromptContentBlock[];
   settings?: AgentActivitySessionSettings;
   status: PendingActivationStatus;
   title: string | null;
@@ -82,6 +85,7 @@ export interface PendingSubmitIntentRecord {
   agentSessionId: string;
   clientSubmitId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   content: readonly AgentPromptContentBlock[];
   displayPrompt?: string;
   errorCode: string | null;
@@ -106,6 +110,7 @@ interface SessionActivationRequestedIntentBase {
   type: "activation/requested";
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   content?: readonly AgentPromptContentBlock[];
   cwd?: string;
   expiresAtUnixMs: number;
@@ -177,6 +182,7 @@ interface SessionActivateCommandBase {
   type: "session/activate";
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   commandId: string;
   correlationId: string;
   cwd?: string;
@@ -226,6 +232,7 @@ export interface SubmitRequestedIntent {
   agentSessionId: string;
   clientSubmitId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   content: readonly AgentPromptContentBlock[];
   displayPrompt?: string;
   expiresAtUnixMs: number;

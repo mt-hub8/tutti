@@ -46,6 +46,7 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 					"enabled":true,
 					"installed":true,
 					"availability":"AVAILABLE",
+					"installPolicy":"AVAILABLE",
 					"interface":{
 						"displayName":"Browser",
 						"shortDescription":"Control the in-app browser"
@@ -57,6 +58,8 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 					"name":"sites",
 					"enabled":true,
 					"installed":true,
+					"availability":"AVAILABLE",
+					"installPolicy":"INSTALLED_BY_DEFAULT",
 					"interface":{"displayName":"Sites","shortDescription":"Build and deploy websites"}
 				},
 				{
@@ -64,6 +67,8 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 					"name":"computer-use",
 					"enabled":false,
 					"installed":true,
+					"availability":"AVAILABLE",
+					"installPolicy":"AVAILABLE",
 					"interface":{"displayName":"Computer Use"}
 				},
 				{
@@ -71,6 +76,8 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 					"name":"visualize",
 					"enabled":true,
 					"installed":false,
+					"availability":"AVAILABLE",
+					"installPolicy":"AVAILABLE",
 					"interface":{"displayName":"Visualize"}
 				},
 				{
@@ -78,6 +85,7 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 					"name":"blocked",
 					"enabled":true,
 					"installed":true,
+					"availability":"AVAILABLE",
 					"installPolicy":"NOT_AVAILABLE",
 					"interface":{"displayName":"Blocked"}
 				},
@@ -129,12 +137,12 @@ func TestParseCodexPluginCapabilitiesUsesMarketplaceShape(t *testing.T) {
 	}
 
 	visualize := byID["plugin:visualize@openai-bundled"]
-	if visualize.Status != "setupRequired" || visualize.Invocation != "none" {
+	if visualize.Status != "notInstalled" || visualize.Invocation != "none" {
 		t.Fatalf("visualize plugin = %#v", visualize)
 	}
 
 	blocked := byID["plugin:blocked@openai-bundled"]
-	if blocked.Status != "setupRequired" || blocked.Invocation != "none" {
+	if blocked.Status != "unsupported" || blocked.Invocation != "none" {
 		t.Fatalf("blocked plugin = %#v", blocked)
 	}
 	if _, ok := byID["plugin:remote-uninstalled@remote-marketplace"]; ok {
@@ -172,6 +180,8 @@ func TestCodexNativeComputerPluginStaysVisibleBeforeInstallation(t *testing.T) {
 				"name":"computer-use",
 				"installed":false,
 				"enabled":false,
+				"availability":"AVAILABLE",
+				"installPolicy":"AVAILABLE",
 				"interface":{"displayName":"Computer Use"}
 			}]
 		}]
@@ -179,8 +189,35 @@ func TestCodexNativeComputerPluginStaysVisibleBeforeInstallation(t *testing.T) {
 	if len(errs) != 0 || len(plugins) != 1 {
 		t.Fatalf("plugins = %#v, errors = %#v", plugins, errs)
 	}
-	if plugins[0].Status != "setupRequired" || plugins[0].Semantic != "computerUse" {
+	if plugins[0].Status != "notInstalled" || plugins[0].Semantic != "computerUse" {
 		t.Fatalf("computer plugin = %#v", plugins[0])
+	}
+}
+
+func TestCodexPluginCapabilityStatusMatchesRuntimeReadinessClassification(t *testing.T) {
+	tests := []struct {
+		name   string
+		plugin map[string]any
+		want   string
+	}{
+		{"available", map[string]any{"availability": "AVAILABLE", "installPolicy": "AVAILABLE", "installed": true, "enabled": true}, "available"},
+		{"installed by default", map[string]any{"availability": "AVAILABLE", "installPolicy": "INSTALLED_BY_DEFAULT", "installed": true, "enabled": true}, "available"},
+		{"not installed", map[string]any{"availability": "AVAILABLE", "installPolicy": "AVAILABLE", "installed": false, "enabled": true}, "notInstalled"},
+		{"disabled", map[string]any{"availability": "AVAILABLE", "installPolicy": "AVAILABLE", "installed": true, "enabled": false}, "disabled"},
+		{"admin disabled", map[string]any{"availability": "DISABLED_BY_ADMIN", "installPolicy": "AVAILABLE", "installed": true, "enabled": true}, "disabledByAdmin"},
+		{"policy blocked", map[string]any{"availability": "AVAILABLE", "installPolicy": "NOT_AVAILABLE", "installed": true, "enabled": true}, "unsupported"},
+		{"unsupported", map[string]any{"availability": "UNSUPPORTED", "installPolicy": "AVAILABLE", "installed": true, "enabled": true}, "unsupported"},
+		{"missing availability", map[string]any{"installPolicy": "AVAILABLE", "installed": true, "enabled": true}, "unknown"},
+		{"missing policy", map[string]any{"availability": "AVAILABLE", "installed": true, "enabled": true}, "unknown"},
+		{"missing installed", map[string]any{"availability": "AVAILABLE", "installPolicy": "AVAILABLE", "enabled": true}, "unknown"},
+		{"future enum", map[string]any{"availability": "FUTURE", "installPolicy": "AVAILABLE", "installed": true, "enabled": true}, "unknown"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := codexPluginCapabilityStatus(test.plugin); got != test.want {
+				t.Fatalf("status = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
@@ -298,7 +335,7 @@ while IFS= read -r line; do
       echo '{"id":"3","result":{"data":[]}}'
       ;;
     *plugin/list*)
-      echo '{"id":"4","result":{"marketplaces":[{"name":"openai-bundled","plugins":[{"id":"browser@openai-bundled","name":"browser","enabled":true,"installed":true,"interface":{"displayName":"Browser","shortDescription":"In-app browser"},"source":{"type":"local"}}]}],"marketplaceLoadErrors":[]}}'
+      echo '{"id":"4","result":{"marketplaces":[{"name":"openai-bundled","plugins":[{"id":"browser@openai-bundled","name":"browser","enabled":true,"installed":true,"availability":"AVAILABLE","installPolicy":"AVAILABLE","interface":{"displayName":"Browser","shortDescription":"In-app browser"},"source":{"type":"local"}}]}],"marketplaceLoadErrors":[]}}'
       ;;
     *mcpServerStatus/list*)
       echo '{"id":"5","result":{"data":[]}}'
@@ -403,7 +440,7 @@ func (t *strictCodexCapabilityHandshakeTransport) Read(p []byte) (int, error) {
 		if t.failPluginList {
 			responses = append(responses, `{"id":"4","error":{"code":-32601,"message":"Method not found"}}`)
 		} else {
-			responses = append(responses, `{"id":"4","result":{"marketplaces":[{"name":"openai-bundled","plugins":[{"id":"browser@openai-bundled","name":"browser","enabled":true,"installed":true,"interface":{"displayName":"Browser"},"source":{"type":"local"}}]}],"marketplaceLoadErrors":[]}}`)
+			responses = append(responses, `{"id":"4","result":{"marketplaces":[{"name":"openai-bundled","plugins":[{"id":"browser@openai-bundled","name":"browser","enabled":true,"installed":true,"availability":"AVAILABLE","installPolicy":"AVAILABLE","interface":{"displayName":"Browser"},"source":{"type":"local"}}]}],"marketplaceLoadErrors":[]}}`)
 		}
 		responses = append(responses, `{"id":"5","result":{"data":[]}}`)
 		_, _ = io.WriteString(&t.pending, strings.Join(responses, "\n")+"\n")

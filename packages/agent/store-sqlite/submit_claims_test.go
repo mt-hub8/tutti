@@ -91,6 +91,14 @@ VALUES
 	if err := store.applyWorkspaceAgentSubmitClaimsV2(ctx); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.applyWorkspaceAgentSubmitClaimsV3(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Migration application is ledger-idempotent for a database upgraded from
+	// submit-claim v1/v2; a second pass must not attempt ALTER TABLE again.
+	if err := store.applyWorkspaceAgentSubmitClaimsV3(ctx); err != nil {
+		t.Fatal(err)
+	}
 	accepted, ok, err := store.getSubmitClaim(ctx, "ws-1", "session-1", "accepted-legacy")
 	if err != nil || !ok || accepted.CanonicalTurnID != "turn-accepted" {
 		t.Fatalf("accepted legacy claim=%#v ok=%v err=%v", accepted, ok, err)
@@ -98,6 +106,9 @@ VALUES
 	prepared, ok, err := store.getSubmitClaim(ctx, "ws-1", "session-1", "prepared-legacy")
 	if err != nil || !ok || prepared.CanonicalTurnID != "" || prepared.Status != "prepared" {
 		t.Fatalf("prepared legacy claim=%#v ok=%v err=%v", prepared, ok, err)
+	}
+	if accepted.TurnCapabilityPlanJSON != "" || prepared.TurnCapabilityPlanJSON != "" {
+		t.Fatalf("legacy capability plan values accepted=%q prepared=%q, want empty", accepted.TurnCapabilityPlanJSON, prepared.TurnCapabilityPlanJSON)
 	}
 }
 

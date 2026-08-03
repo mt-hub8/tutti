@@ -3,7 +3,8 @@ import {
   type AgentActivityAdapter,
   type AgentActivitySession,
   type AgentActivitySessionDetailSnapshot,
-  type AgentPromptContentBlock
+  type AgentPromptContentBlock,
+  requireAgentActivityTurnCapabilityInvocation
 } from "@tutti-os/agent-activity-core";
 import {
   agentActivityMessageFromTuttidMessage,
@@ -18,6 +19,7 @@ export {
 import type {
   TuttidClient,
   AgentSubmitDiagnostics,
+  AgentTurnCapabilityInvocation,
   AgentPromptContentBlock as TuttidAgentPromptContentBlock,
   CreateWorkspaceAgentSessionRequest,
   SendWorkspaceAgentSessionInputRequest,
@@ -225,6 +227,9 @@ export function createDesktopAgentActivityAdapter({
           }
         });
         const agentTargetId = requiredAgentTargetId(input.agentTargetId);
+        const turnCapabilityInvocation = toTuttidTurnCapabilityInvocation(
+          input.turnCapabilityInvocation
+        );
         recordingId = takePendingSessionRecording?.(input.workspaceId) ?? null;
         const request: CreateWorkspaceAgentSessionRequest = {
           agentSessionId,
@@ -237,6 +242,7 @@ export function createDesktopAgentActivityAdapter({
                 )
               }
             : {}),
+          ...(turnCapabilityInvocation ? { turnCapabilityInvocation } : {}),
           clientSubmitId: input.clientSubmitId,
           cwd: input.cwd ?? null,
           initialContent: toTuttidPromptContentBlocks(
@@ -322,6 +328,9 @@ export function createDesktopAgentActivityAdapter({
         submitDiagnostics: input.submitDiagnostics,
         workspaceId: input.workspaceId
       });
+      const turnCapabilityInvocation = toTuttidTurnCapabilityInvocation(
+        input.turnCapabilityInvocation
+      );
       reportDesktopAgentSubmitTrace(runtimeApi, {
         agentSessionId: input.agentSessionId,
         clientSubmitId: input.clientSubmitId,
@@ -338,6 +347,7 @@ export function createDesktopAgentActivityAdapter({
               )
             }
           : {}),
+        ...(turnCapabilityInvocation ? { turnCapabilityInvocation } : {}),
         content: toTuttidPromptContentBlocks(input.content),
         displayPrompt: input.displayPrompt ?? null,
         ...(input.guidance === true ? { guidance: true } : {}),
@@ -689,6 +699,18 @@ function toTuttidCapabilityReference(reference: {
     );
   }
   return { capability: "tutti", source: reference.source };
+}
+
+function toTuttidTurnCapabilityInvocation(
+  input: unknown
+): AgentTurnCapabilityInvocation | undefined {
+  const normalized = requireAgentActivityTurnCapabilityInvocation(input);
+  return normalized
+    ? {
+        semantic: normalized.semantic,
+        ...(normalized.consent ? { consent: normalized.consent } : {})
+      }
+    : undefined;
 }
 
 function reportDesktopAgentMessageListDiagnostic(

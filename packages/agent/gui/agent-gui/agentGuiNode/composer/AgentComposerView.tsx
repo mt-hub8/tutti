@@ -23,6 +23,7 @@ import {
 } from "../AgentComposerSettingsMenus";
 import { AgentChromeNotice } from "../AgentSessionChrome";
 import { AgentFullAccessRestoredWarning } from "../AgentFullAccessRestoredWarning";
+import { AgentCapabilityConsentDialog } from "../AgentCapabilityConsentDialog";
 import {
   AgentRichTextEditor,
   type AgentRichTextEditorHandle
@@ -160,6 +161,10 @@ export function AgentComposerView(input: Props): React.JSX.Element {
     input.mentionFrame;
   const {
     closeReviewPicker,
+    capabilityConsentDialog,
+    capabilityUnavailableNotice,
+    confirmCapabilityConsent,
+    dismissCapabilityConsent,
     closeSlashFloatingMenu,
     closeSlashStatusPanel,
     composerControlsHardDisabled,
@@ -169,6 +174,7 @@ export function AgentComposerView(input: Props): React.JSX.Element {
     selectCapabilitySettings,
     selectCommand,
     selectPluginSettings,
+    selectProviderCapability,
     selectSkill,
     settingsControlsDisabled,
     submit,
@@ -243,6 +249,14 @@ export function AgentComposerView(input: Props): React.JSX.Element {
       onSubmit={submit}
     >
       {fileDropOverlay}
+      <AgentCapabilityConsentDialog
+        capabilityLabel={capabilityConsentDialog?.label ?? ""}
+        onConfirm={confirmCapabilityConsent}
+        onOpenChange={(open) => {
+          if (!open) dismissCapabilityConsent();
+        }}
+        open={capabilityConsentDialog !== null}
+      />
       {visibleActivePrompt ? (
         <div
           className={styles.composerFloatingPrompt}
@@ -339,6 +353,14 @@ export function AgentComposerView(input: Props): React.JSX.Element {
               "projectSelect.projectMissingTitle"
             ])}
             description={labels.projectMissingDescription}
+          />
+        ) : null}
+        {capabilityUnavailableNotice ? (
+          <AgentChromeNotice
+            tone="danger"
+            role="alert"
+            testId="agent-gui-capability-unavailable-notice"
+            title={capabilityUnavailableNotice}
           />
         ) : null}
         <div
@@ -542,6 +564,7 @@ export function AgentComposerView(input: Props): React.JSX.Element {
                 onSelectCapability={selectCapability}
                 onSelectCapabilitySettings={selectCapabilitySettings}
                 onSelectPluginSettings={selectPluginSettings}
+                onSelectProviderCapability={selectProviderCapability}
                 onSelectSkill={selectSkill}
               />
             </ComposerFloatingMenuSurface>

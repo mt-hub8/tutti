@@ -98,6 +98,8 @@ export function AgentComposer(props: AgentComposerProps): React.JSX.Element {
     hasCompactableContext = true,
     compactSupported = null,
     availableSkills = EMPTY_PROVIDER_SKILLS,
+    capabilityPresentations = [],
+    turnCapabilityStates = [],
     gate,
     presentationEditorDisabled,
     disabledReason,
@@ -300,11 +302,13 @@ export function AgentComposer(props: AgentComposerProps): React.JSX.Element {
     paletteDraftPrompt,
     availableCommands,
     availableSkills,
+    capabilityPresentations,
     hasCompactableContext,
     compactSupported,
     composerSettings,
     capabilityMenuState,
     capabilityControlsReadOnly,
+    tuttiModeActive,
     labels,
     uiLanguage,
     editorHandleRef
@@ -425,6 +429,7 @@ export function AgentComposer(props: AgentComposerProps): React.JSX.Element {
 
   const slashActions = useComposerSlashActions({
     workspaceId,
+    agentSessionId,
     provider,
     disabled,
     submitDisabled,
@@ -434,6 +439,9 @@ export function AgentComposer(props: AgentComposerProps): React.JSX.Element {
     showStopButton,
     promptImagesSupported: canUploadAttachment && promptImagesSupported,
     availableSkills,
+    capabilityPresentations,
+    turnCapabilityStates,
+    tuttiModeActive,
     composerSettings,
     // Host-gated product capability: omit or enabled:false must hide Tutti Mode
     // entries (footer chip, badge activation, /tutti). Fail closed like other
@@ -448,6 +456,7 @@ export function AgentComposer(props: AgentComposerProps): React.JSX.Element {
     onCapabilitySettingsRequest,
     onSlashStatusOpen,
     onPromptImagesUnsupported,
+    labels,
     onRequestGitBranches,
     onTuttiModeActivate: () => onTuttiModeChange(true),
     draftContent,

@@ -11,6 +11,7 @@ import (
 	runtimeprep "github.com/tutti-os/tutti/packages/agent/runtimeprep"
 	storesqlite "github.com/tutti-os/tutti/packages/agent/store-sqlite"
 	"github.com/tutti-os/tutti/services/tuttid/biz/agentprovider"
+	"github.com/tutti-os/tutti/services/tuttid/biz/tuttimodeactivation"
 )
 
 type serviceHostPreparation struct {
@@ -374,16 +375,22 @@ func composeApplicationHost(
 		sessionForkRecovery, _ = canonical.(agenthost.SessionForkRecoveryStore)
 	}
 	sessionForkRuntime, _ := runtime.(agenthost.SessionForkRuntime)
+	turnCapabilities, _ := runtime.(agenthost.RuntimeTurnCapabilityPort)
+	if turnCapabilities != nil {
+		turnCapabilities = serviceHostTurnCapabilityPort{native: turnCapabilities}
+	}
 	return agenthost.New(agenthost.Config{
 		CanonicalStore: canonical, SessionManagement: sessionManagement,
 		SessionBatchManagement: sessionBatchManagement, SessionPurge: s.SessionPurgeStore,
 		SessionForks: sessionForks, SessionForkRecovery: sessionForkRecovery,
-		SessionForkRuntime:   sessionForkRuntime,
-		SessionForkContext:   serviceHostSessionForkContextPolicy{service: s},
-		SessionForkState:     serviceHostSessionForkProviderStateBinder{service: s},
-		SessionDeletionGuard: s.SessionDeletionGuard,
-		Runtime:              runtime,
-		RuntimePreparation:   serviceHostPreparation{service: s}, Attachments: s.PromptAttachmentStore,
+		SessionForkRuntime:      sessionForkRuntime,
+		SessionForkContext:      serviceHostSessionForkContextPolicy{service: s},
+		SessionForkState:        serviceHostSessionForkProviderStateBinder{service: s},
+		SessionDeletionGuard:    s.SessionDeletionGuard,
+		Runtime:                 runtime,
+		TurnCapabilities:        turnCapabilities,
+		TurnCapabilityAdmission: serviceHostTurnCapabilityAdmission{service: s},
+		RuntimePreparation:      serviceHostPreparation{service: s}, Attachments: s.PromptAttachmentStore,
 		SettingsPolicy: serviceHostSettingsPolicy{service: s},
 		Clock:          serviceHostClock{service: s}, SessionLocker: serviceHostLocker{service: s},
 		RuntimeStartGate:  serviceHostStartupGate{service: s},
@@ -399,6 +406,56 @@ func composeApplicationHost(
 		GoalMaxAttempts: s.GoalOperationMaxAttempts, GoalDispatchDeadline: s.GoalOperationDispatchDeadline,
 		GoalActor: agenthost.NewSessionActor(),
 	})
+}
+
+// serviceHostTurnCapabilityAdmission keeps Tutti-mode product policy outside
+// Host while Host owns claim, lock, resume, Ensure, and Exec ordering.
+type serviceHostTurnCapabilityAdmission struct{ service *Service }
+
+func (a serviceHostTurnCapabilityAdmission) AdmitTurnCapability(
+	ctx context.Context,
+	input agenthost.RuntimeTurnCapabilityAdmissionInput,
+) agenthost.RuntimeTurnCapabilityAdmissionResult {
+	if a.service == nil {
+		return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionUnavailable}
+	}
+	providerTargetRef := clonePayload(input.ProviderTargetRef)
+	if providerTargetRef == nil && !input.Initial {
+		resolved, err := a.service.resolveProviderTargetRefForResume(ctx, PersistedSession{
+			WorkspaceID: input.WorkspaceID, ID: input.AgentSessionID,
+			AgentTargetID: input.AgentTargetID, Provider: input.Provider,
+			InternalRuntimeContext: clonePayload(input.RuntimeContext),
+		})
+		if err != nil {
+			return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionUnavailable}
+		}
+		providerTargetRef = resolved
+	}
+	harnessTargetID := input.AgentTargetID
+	if snapshot, ok, err := sessionRuntimeSnapshotFromContext(input.RuntimeContext, input.Provider); err != nil || !ok {
+		if err != nil {
+			return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionUnavailable}
+		}
+	} else {
+		harnessTargetID = snapshot.HarnessAgentTargetID
+	}
+	if !isAuthoritativeCodexTurnCapabilityTarget(harnessTargetID, input.Provider, providerTargetRef) {
+		return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionRejected}
+	}
+	if input.TuttiModeSnapshot != nil && strings.TrimSpace(input.TuttiModeSnapshot.State) == string(tuttimodeactivation.StateActive) {
+		backend := selectCodexTurnBackend(true, input.Invocation.Semantic, legacyTuttiTurnCapabilitySemantic(input.Invocation.Semantic))
+		if backend == codexTurnBackendUnavailable {
+			return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionRejected}
+		}
+		return agenthost.RuntimeTurnCapabilityAdmissionResult{
+			Disposition: agenthost.RuntimeTurnCapabilityAdmissionAllowed,
+			Plan:        codexTurnCapabilityPlan(backend),
+		}
+	}
+	return agenthost.RuntimeTurnCapabilityAdmissionResult{
+		Disposition: agenthost.RuntimeTurnCapabilityAdmissionAllowed,
+		Plan:        codexTurnCapabilityPlan(codexTurnBackendNative),
+	}
 }
 
 // SetApplicationHost installs the single production Host composed by wiring.

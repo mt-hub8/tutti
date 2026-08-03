@@ -1305,7 +1305,29 @@ export const zhCN = {
       invalid_upload_source: "一个或多个上传来源无效或暂时不可用。",
       invalid_workbench_snapshot: "工作台状态无效，暂时无法保存。",
       agent: {
-        prompt_image_unsupported: "这个 Agent 暂时不支持图片输入。"
+        prompt_image_unsupported: "这个 Agent 暂时不支持图片输入。",
+        turn_capability_plugin_not_ready:
+          "请先在 Provider 中安装或启用此能力，然后再次发送已排队的任务",
+        turn_capability_plugin_not_installed:
+          "请先在 Provider 中安装此能力，然后再次发送已排队的任务",
+        turn_capability_plugin_disabled:
+          "请先在 Provider 中启用此能力，然后再次发送已排队的任务",
+        turn_capability_plugin_blocked:
+          "此能力已被 Provider 阻止，无法在当前对话中使用",
+        turn_capability_consent_required:
+          "请先确认仅授权当前对话，然后再次发送已排队的任务",
+        turn_capability_refresh_unsupported:
+          "当前运行时无法准备此能力，请更新或配置 Provider 后重试",
+        turn_capability_refresh_failed:
+          "无法刷新此能力，请检查 Provider 后再次发送已排队的任务",
+        turn_capability_runtime_busy:
+          "此能力正忙，请完成当前工作后再次发送已排队的任务",
+        turn_capability_availability_unknown:
+          "无法确认此能力已就绪，请检查 Provider 后再次发送已排队的任务",
+        turn_capability_runtime_unavailable:
+          "当前运行时不可用，请重新连接后再次发送已排队的任务",
+        turn_capability_runtime_not_ready:
+          "此能力尚未在当前运行时就绪，请检查 Provider 后再次发送已排队的任务"
       },
       malformed_request: "这个请求暂时无法识别。",
       missing_workspace_id: "请先选择一个工作区再重试。",

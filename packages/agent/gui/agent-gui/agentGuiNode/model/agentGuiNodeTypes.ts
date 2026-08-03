@@ -1,5 +1,7 @@
 import type {
+  AgentActivityComposerCapabilityPresentation,
   AgentActivitySessionGoal,
+  AgentActivityTurnCapabilityState,
   AgentActivityUsage,
   CanonicalAgentSession,
   SessionRuntimeAvailability
@@ -124,7 +126,11 @@ export interface AgentGUIProviderSkillOption {
     | "available"
     | "disabled"
     | "authRequired"
+    | "disabledByAdmin"
+    | "error"
+    | "notInstalled"
     | "setupRequired"
+    | "unknown"
     | "unsupported";
 }
 
@@ -468,6 +474,9 @@ export interface AgentGUIComposerGate {
 export interface AgentGUIComposerViewModel {
   handoffAgentTargets: readonly AgentGUIAgentTarget[];
   availableCommands: AgentSessionCommand[];
+  capabilityPresentations: AgentActivityComposerCapabilityPresentation[];
+  /** Durable, session-scoped capability state; never target/catalog metadata. */
+  turnCapabilityStates?: readonly AgentActivityTurnCapabilityState[];
   availableSkills: AgentGUIProviderSkillOption[];
   draftPrompt: string;
   draftContent: AgentComposerDraft;

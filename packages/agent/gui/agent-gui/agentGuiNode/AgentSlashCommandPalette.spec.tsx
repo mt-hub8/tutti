@@ -402,7 +402,7 @@ describe("AgentSlashCommandPalette", () => {
     expect(onSelectCapabilitySettings).not.toHaveBeenCalled();
   });
 
-  it("separates plugin and connector skill entries into source groups", () => {
+  it("keeps non-Codex plugin and connector skill entries in their source groups", () => {
     render(
       <AgentSlashCommandPalette
         label="Slash commands"
@@ -455,12 +455,11 @@ describe("AgentSlashCommandPalette", () => {
     expect(screen.queryByText("Skills")).toBeNull();
   });
 
-  it("renders native plugins with an icon and routes unavailable Computer to setup", () => {
-    const onSelectSkill = vi.fn();
-    const onSelectPluginSettings = vi.fn();
+  it("renders provider capabilities without a plugin entry type", () => {
+    const onSelectProviderCapability = vi.fn();
     render(
       <AgentSlashCommandPalette
-        label="Plugins"
+        label="Capabilities"
         commandsGroupLabel="Commands"
         capabilitiesGroupLabel="Capabilities"
         skillsGroupLabel="Skills"
@@ -470,33 +469,33 @@ describe("AgentSlashCommandPalette", () => {
         highlightedIndex={0}
         entries={[
           {
-            type: "plugin",
-            key: "plugin:sites",
+            type: "providerCapability",
+            key: "capability:sites",
             label: "Sites",
             description: "Build and deploy websites with Sites",
-            selectAction: "insert",
-            plugin: {
+            capability: {
               name: "Sites",
-              trigger: "$sites",
+              label: "Sites",
+              trigger: "/sites",
               invocation: "promptItem",
-              sourceKind: "plugin",
-              kind: "plugin",
               status: "available",
+              invocationScope: "turn",
               semantic: "sites"
             }
           },
           {
-            type: "plugin",
-            key: "plugin:computer",
+            type: "providerCapability",
+            key: "capability:computerUse",
             label: "电脑",
             description: "Control Mac apps from ChatGPT",
-            selectAction: "settings",
-            plugin: {
+            disabled: true,
+            capability: {
               name: "电脑",
-              trigger: "",
-              sourceKind: "plugin",
-              kind: "plugin",
+              label: "电脑",
+              trigger: "/computer",
+              invocation: "promptItem",
               status: "setupRequired",
+              invocationScope: "createOnly",
               semantic: "computerUse"
             }
           }
@@ -504,21 +503,23 @@ describe("AgentSlashCommandPalette", () => {
         onHighlightChange={vi.fn()}
         onSelect={vi.fn()}
         onSelectCapability={vi.fn()}
-        onSelectPluginSettings={onSelectPluginSettings}
-        onSelectSkill={onSelectSkill}
+        onSelectProviderCapability={onSelectProviderCapability}
+        onSelectSkill={vi.fn()}
       />
     );
 
+    expect(screen.getByText("Capabilities")).toBeInTheDocument();
+    expect(screen.queryByText("Plugins")).toBeNull();
     const sites = screen.getByRole("option", { name: /Sites/i });
     expect(sites.querySelector("svg")).not.toBeNull();
     sites.click();
-    expect(onSelectSkill).toHaveBeenCalledWith(
+    expect(onSelectProviderCapability).toHaveBeenCalledWith(
       expect.objectContaining({ semantic: "sites" })
     );
 
-    screen.getByRole("option", { name: /电脑/i }).click();
-    expect(onSelectPluginSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ semantic: "computerUse" })
+    expect(screen.getByRole("option", { name: /电脑/i })).toHaveAttribute(
+      "aria-disabled",
+      "true"
     );
   });
 });

@@ -258,6 +258,9 @@ function activationInput(
     ...(command.capabilityRefs?.length
       ? { capabilityRefs: command.capabilityRefs }
       : {}),
+    ...(command.turnCapabilityInvocation
+      ? { turnCapabilityInvocation: command.turnCapabilityInvocation }
+      : {}),
     ...(command.cwd !== undefined ? { cwd: command.cwd } : {}),
     ...(command.initialContent
       ? { initialContent: [...command.initialContent] }

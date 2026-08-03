@@ -76,6 +76,12 @@ func protocolErrorResponse(err *apierrors.ProtocolError) tuttigenerated.ApiError
 	if err.Retryable {
 		response.Error.Retryable = boolPointer(true)
 	}
+	if err.TurnCapabilityOutcome != nil {
+		response.Error.TurnCapabilityOutcome = &tuttigenerated.AgentTurnCapabilityRecoveryOutcome{
+			NextAction: tuttigenerated.AgentTurnCapabilityRecoveryOutcomeNextAction(err.TurnCapabilityOutcome.NextAction),
+			ReasonCode: err.TurnCapabilityOutcome.ReasonCode,
+		}
+	}
 	if err.DeveloperMessage != "" {
 		response.Error.DeveloperMessage = stringPointer(err.DeveloperMessage)
 	}

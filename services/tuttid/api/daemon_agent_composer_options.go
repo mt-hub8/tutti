@@ -83,8 +83,60 @@ func generatedAgentProviderCapabilityOptions(options []agentservice.ComposerCapa
 			generated.Path = optionalStringPointer(path)
 		}
 		if semantic := strings.TrimSpace(option.Semantic); semantic != "" {
-			value := tuttigenerated.AgentProviderCapabilityOptionSemantic(semantic)
+			value := tuttigenerated.AgentNativeCapabilitySemantic(semantic)
 			generated.Semantic = &value
+		}
+		if strings.TrimSpace(option.InvocationScope) == "turn" {
+			value := tuttigenerated.AgentProviderCapabilityOptionInvocationScopeTurn
+			generated.InvocationScope = &value
+		}
+		if strings.TrimSpace(option.ConsentRequirement) == "explicitSession" {
+			value := tuttigenerated.ExplicitSession
+			generated.ConsentRequirement = &value
+		}
+		result = append(result, generated)
+	}
+	return result
+}
+
+func generatedAgentReservedTurnCapabilityAliases(options []agentservice.ComposerReservedTurnCapabilityAlias) []tuttigenerated.AgentReservedTurnCapabilityAlias {
+	if len(options) == 0 {
+		return []tuttigenerated.AgentReservedTurnCapabilityAlias{}
+	}
+	result := make([]tuttigenerated.AgentReservedTurnCapabilityAlias, 0, len(options))
+	for _, option := range options {
+		alias := strings.TrimSpace(option.Alias)
+		semantic := strings.TrimSpace(option.Semantic)
+		name := strings.TrimSpace(option.Name)
+		label := strings.TrimSpace(option.Label)
+		status := strings.TrimSpace(option.Status)
+		invocation := strings.TrimSpace(option.Invocation)
+		invocationScope := strings.TrimSpace(option.InvocationScope)
+		if alias == "" || semantic == "" || name == "" || label == "" || status == "" || invocation == "" || invocationScope == "" {
+			continue
+		}
+		generated := tuttigenerated.AgentReservedTurnCapabilityAlias{
+			Alias:           alias,
+			Semantic:        tuttigenerated.AgentNativeCapabilitySemantic(semantic),
+			Name:            name,
+			Label:           label,
+			Status:          tuttigenerated.AgentReservedTurnCapabilityAliasStatus(status),
+			Invocation:      tuttigenerated.AgentReservedTurnCapabilityAliasInvocation(invocation),
+			InvocationScope: tuttigenerated.AgentReservedTurnCapabilityAliasInvocationScope(invocationScope),
+		}
+		if description := strings.TrimSpace(option.Description); description != "" {
+			generated.Description = optionalStringPointer(description)
+		}
+		if reason := strings.TrimSpace(option.Reason); reason != "" {
+			generated.Reason = optionalStringPointer(reason)
+		}
+		if nextAction := strings.TrimSpace(option.NextAction); nextAction != "" {
+			value := tuttigenerated.AgentReservedTurnCapabilityAliasNextAction(nextAction)
+			generated.NextAction = &value
+		}
+		if consent := strings.TrimSpace(option.ConsentRequirement); consent == "explicitSession" {
+			value := tuttigenerated.ExplicitSession
+			generated.ConsentRequirement = &value
 		}
 		result = append(result, generated)
 	}

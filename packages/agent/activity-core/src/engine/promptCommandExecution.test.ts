@@ -17,6 +17,7 @@ test("applies required settings before preserving every send semantic", async ()
       assert.deepEqual(input, {
         agentSessionId: "session-1",
         capabilityRefs: [{ capability: "tutti", source: "slash_command" }],
+        turnCapabilityInvocation: { semantic: "browserUse" },
         clientSubmitId: "submit-1",
         content: [{ text: "hello", type: "text" }],
         displayPrompt: "Hello",
@@ -104,6 +105,7 @@ function createCommand(): PromptQueueSendCommand {
   return {
     agentSessionId: "session-1",
     capabilityRefs: [{ capability: "tutti", source: "slash_command" }],
+    turnCapabilityInvocation: { semantic: "browserUse" },
     clientSubmitId: "submit-1",
     commandId: "command-1",
     content: [{ text: "hello", type: "text" }],

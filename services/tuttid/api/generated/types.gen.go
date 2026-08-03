@@ -88,6 +88,27 @@ func (e AccountProductSummaryPartialErrorScope) Valid() bool {
 	}
 }
 
+// Defines values for AgentNativeCapabilitySemantic.
+const (
+	BrowserUse  AgentNativeCapabilitySemantic = "browserUse"
+	ComputerUse AgentNativeCapabilitySemantic = "computerUse"
+	Sites       AgentNativeCapabilitySemantic = "sites"
+)
+
+// Valid indicates whether the value is a known member of the AgentNativeCapabilitySemantic enum.
+func (e AgentNativeCapabilitySemantic) Valid() bool {
+	switch e {
+	case BrowserUse:
+		return true
+	case ComputerUse:
+		return true
+	case Sites:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AgentPromptContentBlockMimeType.
 const (
 	AgentPromptContentBlockMimeTypeImagejpeg AgentPromptContentBlockMimeType = "image/jpeg"
@@ -325,6 +346,24 @@ func (e AgentProviderCapabilityOptionInvocation) Valid() bool {
 	}
 }
 
+// Defines values for AgentProviderCapabilityOptionInvocationScope.
+const (
+	AgentProviderCapabilityOptionInvocationScopeCreateOnly AgentProviderCapabilityOptionInvocationScope = "createOnly"
+	AgentProviderCapabilityOptionInvocationScopeTurn       AgentProviderCapabilityOptionInvocationScope = "turn"
+)
+
+// Valid indicates whether the value is a known member of the AgentProviderCapabilityOptionInvocationScope enum.
+func (e AgentProviderCapabilityOptionInvocationScope) Valid() bool {
+	switch e {
+	case AgentProviderCapabilityOptionInvocationScopeCreateOnly:
+		return true
+	case AgentProviderCapabilityOptionInvocationScopeTurn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AgentProviderCapabilityOptionKind.
 const (
 	AgentProviderCapabilityOptionKindConnector AgentProviderCapabilityOptionKind = "connector"
@@ -352,34 +391,17 @@ func (e AgentProviderCapabilityOptionKind) Valid() bool {
 	}
 }
 
-// Defines values for AgentProviderCapabilityOptionSemantic.
-const (
-	BrowserUse  AgentProviderCapabilityOptionSemantic = "browserUse"
-	ComputerUse AgentProviderCapabilityOptionSemantic = "computerUse"
-	Sites       AgentProviderCapabilityOptionSemantic = "sites"
-)
-
-// Valid indicates whether the value is a known member of the AgentProviderCapabilityOptionSemantic enum.
-func (e AgentProviderCapabilityOptionSemantic) Valid() bool {
-	switch e {
-	case BrowserUse:
-		return true
-	case ComputerUse:
-		return true
-	case Sites:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AgentProviderCapabilityOptionStatus.
 const (
-	AgentProviderCapabilityOptionStatusAuthRequired  AgentProviderCapabilityOptionStatus = "authRequired"
-	AgentProviderCapabilityOptionStatusAvailable     AgentProviderCapabilityOptionStatus = "available"
-	AgentProviderCapabilityOptionStatusDisabled      AgentProviderCapabilityOptionStatus = "disabled"
-	AgentProviderCapabilityOptionStatusSetupRequired AgentProviderCapabilityOptionStatus = "setupRequired"
-	AgentProviderCapabilityOptionStatusUnsupported   AgentProviderCapabilityOptionStatus = "unsupported"
+	AgentProviderCapabilityOptionStatusAuthRequired    AgentProviderCapabilityOptionStatus = "authRequired"
+	AgentProviderCapabilityOptionStatusAvailable       AgentProviderCapabilityOptionStatus = "available"
+	AgentProviderCapabilityOptionStatusDisabled        AgentProviderCapabilityOptionStatus = "disabled"
+	AgentProviderCapabilityOptionStatusDisabledByAdmin AgentProviderCapabilityOptionStatus = "disabledByAdmin"
+	AgentProviderCapabilityOptionStatusError           AgentProviderCapabilityOptionStatus = "error"
+	AgentProviderCapabilityOptionStatusNotInstalled    AgentProviderCapabilityOptionStatus = "notInstalled"
+	AgentProviderCapabilityOptionStatusSetupRequired   AgentProviderCapabilityOptionStatus = "setupRequired"
+	AgentProviderCapabilityOptionStatusUnknown         AgentProviderCapabilityOptionStatus = "unknown"
+	AgentProviderCapabilityOptionStatusUnsupported     AgentProviderCapabilityOptionStatus = "unsupported"
 )
 
 // Valid indicates whether the value is a known member of the AgentProviderCapabilityOptionStatus enum.
@@ -391,7 +413,15 @@ func (e AgentProviderCapabilityOptionStatus) Valid() bool {
 		return true
 	case AgentProviderCapabilityOptionStatusDisabled:
 		return true
+	case AgentProviderCapabilityOptionStatusDisabledByAdmin:
+		return true
+	case AgentProviderCapabilityOptionStatusError:
+		return true
+	case AgentProviderCapabilityOptionStatusNotInstalled:
+		return true
 	case AgentProviderCapabilityOptionStatusSetupRequired:
+		return true
+	case AgentProviderCapabilityOptionStatusUnknown:
 		return true
 	case AgentProviderCapabilityOptionStatusUnsupported:
 		return true
@@ -478,6 +508,108 @@ const (
 func (e AgentProviderUpdateSource) Valid() bool {
 	switch e {
 	case AgentProviderUpdateSourceNpm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentReservedTurnCapabilityAliasInvocation.
+const (
+	AgentReservedTurnCapabilityAliasInvocationNone        AgentReservedTurnCapabilityAliasInvocation = "none"
+	AgentReservedTurnCapabilityAliasInvocationPromptItem  AgentReservedTurnCapabilityAliasInvocation = "promptItem"
+	AgentReservedTurnCapabilityAliasInvocationTextTrigger AgentReservedTurnCapabilityAliasInvocation = "textTrigger"
+)
+
+// Valid indicates whether the value is a known member of the AgentReservedTurnCapabilityAliasInvocation enum.
+func (e AgentReservedTurnCapabilityAliasInvocation) Valid() bool {
+	switch e {
+	case AgentReservedTurnCapabilityAliasInvocationNone:
+		return true
+	case AgentReservedTurnCapabilityAliasInvocationPromptItem:
+		return true
+	case AgentReservedTurnCapabilityAliasInvocationTextTrigger:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentReservedTurnCapabilityAliasInvocationScope.
+const (
+	AgentReservedTurnCapabilityAliasInvocationScopeCreateOnly AgentReservedTurnCapabilityAliasInvocationScope = "createOnly"
+	AgentReservedTurnCapabilityAliasInvocationScopeTurn       AgentReservedTurnCapabilityAliasInvocationScope = "turn"
+)
+
+// Valid indicates whether the value is a known member of the AgentReservedTurnCapabilityAliasInvocationScope enum.
+func (e AgentReservedTurnCapabilityAliasInvocationScope) Valid() bool {
+	switch e {
+	case AgentReservedTurnCapabilityAliasInvocationScopeCreateOnly:
+		return true
+	case AgentReservedTurnCapabilityAliasInvocationScopeTurn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentReservedTurnCapabilityAliasNextAction.
+const (
+	AgentReservedTurnCapabilityAliasNextActionBlocked AgentReservedTurnCapabilityAliasNextAction = "blocked"
+	AgentReservedTurnCapabilityAliasNextActionRetry   AgentReservedTurnCapabilityAliasNextAction = "retry"
+	AgentReservedTurnCapabilityAliasNextActionSetup   AgentReservedTurnCapabilityAliasNextAction = "setup"
+	AgentReservedTurnCapabilityAliasNextActionUse     AgentReservedTurnCapabilityAliasNextAction = "use"
+)
+
+// Valid indicates whether the value is a known member of the AgentReservedTurnCapabilityAliasNextAction enum.
+func (e AgentReservedTurnCapabilityAliasNextAction) Valid() bool {
+	switch e {
+	case AgentReservedTurnCapabilityAliasNextActionBlocked:
+		return true
+	case AgentReservedTurnCapabilityAliasNextActionRetry:
+		return true
+	case AgentReservedTurnCapabilityAliasNextActionSetup:
+		return true
+	case AgentReservedTurnCapabilityAliasNextActionUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentReservedTurnCapabilityAliasStatus.
+const (
+	AgentReservedTurnCapabilityAliasStatusAuthRequired    AgentReservedTurnCapabilityAliasStatus = "authRequired"
+	AgentReservedTurnCapabilityAliasStatusAvailable       AgentReservedTurnCapabilityAliasStatus = "available"
+	AgentReservedTurnCapabilityAliasStatusDisabled        AgentReservedTurnCapabilityAliasStatus = "disabled"
+	AgentReservedTurnCapabilityAliasStatusDisabledByAdmin AgentReservedTurnCapabilityAliasStatus = "disabledByAdmin"
+	AgentReservedTurnCapabilityAliasStatusError           AgentReservedTurnCapabilityAliasStatus = "error"
+	AgentReservedTurnCapabilityAliasStatusNotInstalled    AgentReservedTurnCapabilityAliasStatus = "notInstalled"
+	AgentReservedTurnCapabilityAliasStatusSetupRequired   AgentReservedTurnCapabilityAliasStatus = "setupRequired"
+	AgentReservedTurnCapabilityAliasStatusUnknown         AgentReservedTurnCapabilityAliasStatus = "unknown"
+	AgentReservedTurnCapabilityAliasStatusUnsupported     AgentReservedTurnCapabilityAliasStatus = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the AgentReservedTurnCapabilityAliasStatus enum.
+func (e AgentReservedTurnCapabilityAliasStatus) Valid() bool {
+	switch e {
+	case AgentReservedTurnCapabilityAliasStatusAuthRequired:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusAvailable:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusDisabled:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusDisabledByAdmin:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusError:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusNotInstalled:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusSetupRequired:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusUnknown:
+		return true
+	case AgentReservedTurnCapabilityAliasStatusUnsupported:
 		return true
 	default:
 		return false
@@ -664,6 +796,21 @@ func (e AgentSessionReplayTransportPlaybackTimingMode) Valid() bool {
 	case AgentSessionReplayTransportPlaybackTimingModeFastForward:
 		return true
 	case AgentSessionReplayTransportPlaybackTimingModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentSessionTurnCapabilityStateState.
+const (
+	Bound AgentSessionTurnCapabilityStateState = "bound"
+)
+
+// Valid indicates whether the value is a known member of the AgentSessionTurnCapabilityStateState enum.
+func (e AgentSessionTurnCapabilityStateState) Valid() bool {
+	switch e {
+	case Bound:
 		return true
 	default:
 		return false
@@ -892,6 +1039,48 @@ func (e AgentTargetSource) Valid() bool {
 	case AgentTargetSourceSystem:
 		return true
 	case AgentTargetSourceUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentTurnCapabilityConsent.
+const (
+	ExplicitSession AgentTurnCapabilityConsent = "explicitSession"
+)
+
+// Valid indicates whether the value is a known member of the AgentTurnCapabilityConsent enum.
+func (e AgentTurnCapabilityConsent) Valid() bool {
+	switch e {
+	case ExplicitSession:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentTurnCapabilityRecoveryOutcomeNextAction.
+const (
+	AgentTurnCapabilityRecoveryOutcomeNextActionAuthorizeRequired AgentTurnCapabilityRecoveryOutcomeNextAction = "authorize_required"
+	AgentTurnCapabilityRecoveryOutcomeNextActionBlocked           AgentTurnCapabilityRecoveryOutcomeNextAction = "blocked"
+	AgentTurnCapabilityRecoveryOutcomeNextActionEnableRequired    AgentTurnCapabilityRecoveryOutcomeNextAction = "enable_required"
+	AgentTurnCapabilityRecoveryOutcomeNextActionRetry             AgentTurnCapabilityRecoveryOutcomeNextAction = "retry"
+	AgentTurnCapabilityRecoveryOutcomeNextActionSetupRequired     AgentTurnCapabilityRecoveryOutcomeNextAction = "setup_required"
+)
+
+// Valid indicates whether the value is a known member of the AgentTurnCapabilityRecoveryOutcomeNextAction enum.
+func (e AgentTurnCapabilityRecoveryOutcomeNextAction) Valid() bool {
+	switch e {
+	case AgentTurnCapabilityRecoveryOutcomeNextActionAuthorizeRequired:
+		return true
+	case AgentTurnCapabilityRecoveryOutcomeNextActionBlocked:
+		return true
+	case AgentTurnCapabilityRecoveryOutcomeNextActionEnableRequired:
+		return true
+	case AgentTurnCapabilityRecoveryOutcomeNextActionRetry:
+		return true
+	case AgentTurnCapabilityRecoveryOutcomeNextActionSetupRequired:
 		return true
 	default:
 		return false
@@ -2598,28 +2787,28 @@ func (e WorkspaceAgentSessionForkThroughTurnPointType) Valid() bool {
 
 // Defines values for WorkspaceAgentSessionGoalStatus.
 const (
-	Active        WorkspaceAgentSessionGoalStatus = "active"
-	Blocked       WorkspaceAgentSessionGoalStatus = "blocked"
-	BudgetLimited WorkspaceAgentSessionGoalStatus = "budgetLimited"
-	Complete      WorkspaceAgentSessionGoalStatus = "complete"
-	Paused        WorkspaceAgentSessionGoalStatus = "paused"
-	UsageLimited  WorkspaceAgentSessionGoalStatus = "usageLimited"
+	WorkspaceAgentSessionGoalStatusActive        WorkspaceAgentSessionGoalStatus = "active"
+	WorkspaceAgentSessionGoalStatusBlocked       WorkspaceAgentSessionGoalStatus = "blocked"
+	WorkspaceAgentSessionGoalStatusBudgetLimited WorkspaceAgentSessionGoalStatus = "budgetLimited"
+	WorkspaceAgentSessionGoalStatusComplete      WorkspaceAgentSessionGoalStatus = "complete"
+	WorkspaceAgentSessionGoalStatusPaused        WorkspaceAgentSessionGoalStatus = "paused"
+	WorkspaceAgentSessionGoalStatusUsageLimited  WorkspaceAgentSessionGoalStatus = "usageLimited"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceAgentSessionGoalStatus enum.
 func (e WorkspaceAgentSessionGoalStatus) Valid() bool {
 	switch e {
-	case Active:
+	case WorkspaceAgentSessionGoalStatusActive:
 		return true
-	case Blocked:
+	case WorkspaceAgentSessionGoalStatusBlocked:
 		return true
-	case BudgetLimited:
+	case WorkspaceAgentSessionGoalStatusBudgetLimited:
 		return true
-	case Complete:
+	case WorkspaceAgentSessionGoalStatusComplete:
 		return true
-	case Paused:
+	case WorkspaceAgentSessionGoalStatusPaused:
 		return true
-	case UsageLimited:
+	case WorkspaceAgentSessionGoalStatusUsageLimited:
 		return true
 	default:
 		return false
@@ -3480,31 +3669,31 @@ func (e WorkspaceWorkflowPlanRevisionSchemaVersion) Valid() bool {
 
 // Defines values for WorkspaceWorkflowStatus.
 const (
-	WorkspaceWorkflowStatusAccepted      WorkspaceWorkflowStatus = "accepted"
-	WorkspaceWorkflowStatusCanceled      WorkspaceWorkflowStatus = "canceled"
-	WorkspaceWorkflowStatusCompleted     WorkspaceWorkflowStatus = "completed"
-	WorkspaceWorkflowStatusFailed        WorkspaceWorkflowStatus = "failed"
-	WorkspaceWorkflowStatusInProgress    WorkspaceWorkflowStatus = "in_progress"
-	WorkspaceWorkflowStatusPendingReview WorkspaceWorkflowStatus = "pending_review"
-	WorkspaceWorkflowStatusRejected      WorkspaceWorkflowStatus = "rejected"
+	Accepted      WorkspaceWorkflowStatus = "accepted"
+	Canceled      WorkspaceWorkflowStatus = "canceled"
+	Completed     WorkspaceWorkflowStatus = "completed"
+	Failed        WorkspaceWorkflowStatus = "failed"
+	InProgress    WorkspaceWorkflowStatus = "in_progress"
+	PendingReview WorkspaceWorkflowStatus = "pending_review"
+	Rejected      WorkspaceWorkflowStatus = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceWorkflowStatus enum.
 func (e WorkspaceWorkflowStatus) Valid() bool {
 	switch e {
-	case WorkspaceWorkflowStatusAccepted:
+	case Accepted:
 		return true
-	case WorkspaceWorkflowStatusCanceled:
+	case Canceled:
 		return true
-	case WorkspaceWorkflowStatusCompleted:
+	case Completed:
 		return true
-	case WorkspaceWorkflowStatusFailed:
+	case Failed:
 		return true
-	case WorkspaceWorkflowStatusInProgress:
+	case InProgress:
 		return true
-	case WorkspaceWorkflowStatusPendingReview:
+	case PendingReview:
 		return true
-	case WorkspaceWorkflowStatusRejected:
+	case Rejected:
 		return true
 	default:
 		return false
@@ -3694,6 +3883,9 @@ type AgentModelBinding struct {
 	WorkspaceId   string     `json:"workspaceId"`
 }
 
+// AgentNativeCapabilitySemantic Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+type AgentNativeCapabilitySemantic string
+
 // AgentPromptContentBlock defines model for AgentPromptContentBlock.
 type AgentPromptContentBlock struct {
 	AttachmentId *string `json:"attachmentId,omitempty"`
@@ -3813,32 +4005,37 @@ type AgentProviderAvailabilityStatus string
 
 // AgentProviderCapabilityOption defines model for AgentProviderCapabilityOption.
 type AgentProviderCapabilityOption struct {
-	Description *string                                 `json:"description,omitempty"`
-	Id          string                                  `json:"id"`
-	Invocation  AgentProviderCapabilityOptionInvocation `json:"invocation"`
-	Kind        AgentProviderCapabilityOptionKind       `json:"kind"`
-	Label       string                                  `json:"label"`
-	Name        string                                  `json:"name"`
-	Path        *string                                 `json:"path,omitempty"`
-	PluginName  *string                                 `json:"pluginName,omitempty"`
+	// ConsentRequirement Explicit user-confirmed, session-scoped consent evidence for a capability invocation. Omitted values grant no consent.
+	ConsentRequirement *AgentTurnCapabilityConsent             `json:"consentRequirement,omitempty"`
+	Description        *string                                 `json:"description,omitempty"`
+	Id                 string                                  `json:"id"`
+	Invocation         AgentProviderCapabilityOptionInvocation `json:"invocation"`
 
-	// Semantic Stable provider-native presentation and interaction key. It does not identify an executable, filesystem path, or provider wire implementation.
-	Semantic   *AgentProviderCapabilityOptionSemantic `json:"semantic,omitempty"`
-	ServerName *string                                `json:"serverName,omitempty"`
-	Source     *string                                `json:"source,omitempty"`
-	Status     AgentProviderCapabilityOptionStatus    `json:"status"`
-	ToolName   *string                                `json:"toolName,omitempty"`
-	Trigger    *string                                `json:"trigger,omitempty"`
+	// InvocationScope Lifecycle scope for an explicit capability invocation. Omitted values are compatible with createOnly.
+	InvocationScope *AgentProviderCapabilityOptionInvocationScope `json:"invocationScope,omitempty"`
+	Kind            AgentProviderCapabilityOptionKind             `json:"kind"`
+	Label           string                                        `json:"label"`
+	Name            string                                        `json:"name"`
+	Path            *string                                       `json:"path,omitempty"`
+	PluginName      *string                                       `json:"pluginName,omitempty"`
+
+	// Semantic Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+	Semantic   *AgentNativeCapabilitySemantic      `json:"semantic,omitempty"`
+	ServerName *string                             `json:"serverName,omitempty"`
+	Source     *string                             `json:"source,omitempty"`
+	Status     AgentProviderCapabilityOptionStatus `json:"status"`
+	ToolName   *string                             `json:"toolName,omitempty"`
+	Trigger    *string                             `json:"trigger,omitempty"`
 }
 
 // AgentProviderCapabilityOptionInvocation defines model for AgentProviderCapabilityOption.Invocation.
 type AgentProviderCapabilityOptionInvocation string
 
+// AgentProviderCapabilityOptionInvocationScope Lifecycle scope for an explicit capability invocation. Omitted values are compatible with createOnly.
+type AgentProviderCapabilityOptionInvocationScope string
+
 // AgentProviderCapabilityOptionKind defines model for AgentProviderCapabilityOption.Kind.
 type AgentProviderCapabilityOptionKind string
-
-// AgentProviderCapabilityOptionSemantic Stable provider-native presentation and interaction key. It does not identify an executable, filesystem path, or provider wire implementation.
-type AgentProviderCapabilityOptionSemantic string
 
 // AgentProviderCapabilityOptionStatus defines model for AgentProviderCapabilityOption.Status.
 type AgentProviderCapabilityOptionStatus string
@@ -3909,6 +4106,9 @@ type AgentProviderComposerOptionsResponse struct {
 	Provider                WorkspaceAgentProvider                       `json:"provider"`
 	ReasoningConfig         AgentProviderComposerConfig                  `json:"reasoningConfig"`
 	ReasoningOptionsByModel AgentProviderComposerReasoningOptionsByModel `json:"reasoningOptionsByModel"`
+
+	// ReservedTurnCapabilityAliases Provider-reserved current-turn slash capability aliases. This is a presentation-only, fail-closed surface and is independent from skills and capabilityCatalog.
+	ReservedTurnCapabilityAliases *[]AgentReservedTurnCapabilityAlias `json:"reservedTurnCapabilityAliases,omitempty"`
 
 	// RuntimeContext Opaque provider runtime metadata retained for legacy and diagnostic consumers. Typed composer fields are authoritative; new composer capabilities must not be added to this object.
 	RuntimeContext     map[string]interface{}       `json:"runtimeContext"`
@@ -4044,6 +4244,37 @@ type AgentQuickPromptListResponse struct {
 type AgentQuickPromptResponse struct {
 	Prompt AgentQuickPrompt `json:"prompt"`
 }
+
+// AgentReservedTurnCapabilityAlias defines model for AgentReservedTurnCapabilityAlias.
+type AgentReservedTurnCapabilityAlias struct {
+	Alias string `json:"alias"`
+
+	// ConsentRequirement Explicit user-confirmed, session-scoped consent evidence for a capability invocation. Omitted values grant no consent.
+	ConsentRequirement *AgentTurnCapabilityConsent                     `json:"consentRequirement,omitempty"`
+	Description        *string                                         `json:"description,omitempty"`
+	Invocation         AgentReservedTurnCapabilityAliasInvocation      `json:"invocation"`
+	InvocationScope    AgentReservedTurnCapabilityAliasInvocationScope `json:"invocationScope"`
+	Label              string                                          `json:"label"`
+	Name               string                                          `json:"name"`
+	NextAction         *AgentReservedTurnCapabilityAliasNextAction     `json:"nextAction,omitempty"`
+	Reason             *string                                         `json:"reason,omitempty"`
+
+	// Semantic Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+	Semantic AgentNativeCapabilitySemantic          `json:"semantic"`
+	Status   AgentReservedTurnCapabilityAliasStatus `json:"status"`
+}
+
+// AgentReservedTurnCapabilityAliasInvocation defines model for AgentReservedTurnCapabilityAlias.Invocation.
+type AgentReservedTurnCapabilityAliasInvocation string
+
+// AgentReservedTurnCapabilityAliasInvocationScope defines model for AgentReservedTurnCapabilityAlias.InvocationScope.
+type AgentReservedTurnCapabilityAliasInvocationScope string
+
+// AgentReservedTurnCapabilityAliasNextAction defines model for AgentReservedTurnCapabilityAlias.NextAction.
+type AgentReservedTurnCapabilityAliasNextAction string
+
+// AgentReservedTurnCapabilityAliasStatus defines model for AgentReservedTurnCapabilityAlias.Status.
+type AgentReservedTurnCapabilityAliasStatus string
 
 // AgentSessionAcceptance defines model for AgentSessionAcceptance.
 type AgentSessionAcceptance struct {
@@ -4200,6 +4431,16 @@ type AgentSessionReplayTransportPlaybackSpeed float64
 
 // AgentSessionReplayTransportPlaybackTimingMode defines model for AgentSessionReplayTransportPlayback.TimingMode.
 type AgentSessionReplayTransportPlaybackTimingMode string
+
+// AgentSessionTurnCapabilityState defines model for AgentSessionTurnCapabilityState.
+type AgentSessionTurnCapabilityState struct {
+	// Semantic Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+	Semantic AgentNativeCapabilitySemantic        `json:"semantic"`
+	State    AgentSessionTurnCapabilityStateState `json:"state"`
+}
+
+// AgentSessionTurnCapabilityStateState defines model for AgentSessionTurnCapabilityState.State.
+type AgentSessionTurnCapabilityStateState string
 
 // AgentSlashCommandEffect defines model for AgentSlashCommandEffect.
 type AgentSlashCommandEffect string
@@ -4358,14 +4599,36 @@ type AgentTargetSetupStatus string
 // AgentTargetSource defines model for AgentTargetSource.
 type AgentTargetSource string
 
+// AgentTurnCapabilityConsent Explicit user-confirmed, session-scoped consent evidence for a capability invocation. Omitted values grant no consent.
+type AgentTurnCapabilityConsent string
+
+// AgentTurnCapabilityInvocation defines model for AgentTurnCapabilityInvocation.
+type AgentTurnCapabilityInvocation struct {
+	// Consent Explicit user-confirmed, session-scoped consent evidence for a capability invocation. Omitted values grant no consent.
+	Consent *AgentTurnCapabilityConsent `json:"consent,omitempty"`
+
+	// Semantic Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+	Semantic AgentNativeCapabilitySemantic `json:"semantic"`
+}
+
+// AgentTurnCapabilityRecoveryOutcome defines model for AgentTurnCapabilityRecoveryOutcome.
+type AgentTurnCapabilityRecoveryOutcome struct {
+	NextAction AgentTurnCapabilityRecoveryOutcomeNextAction `json:"nextAction"`
+	ReasonCode string                                       `json:"reasonCode"`
+}
+
+// AgentTurnCapabilityRecoveryOutcomeNextAction defines model for AgentTurnCapabilityRecoveryOutcome.NextAction.
+type AgentTurnCapabilityRecoveryOutcomeNextAction string
+
 // ApiErrorDetails defines model for ApiErrorDetails.
 type ApiErrorDetails struct {
-	Code             ApiErrorDetailsCode     `json:"code"`
-	CorrelationId    *string                 `json:"correlationId,omitempty"`
-	DeveloperMessage *string                 `json:"developerMessage,omitempty"`
-	Params           *map[string]interface{} `json:"params,omitempty"`
-	Reason           *string                 `json:"reason,omitempty"`
-	Retryable        *bool                   `json:"retryable,omitempty"`
+	Code                  ApiErrorDetailsCode                 `json:"code"`
+	CorrelationId         *string                             `json:"correlationId,omitempty"`
+	DeveloperMessage      *string                             `json:"developerMessage,omitempty"`
+	Params                *map[string]interface{}             `json:"params,omitempty"`
+	Reason                *string                             `json:"reason,omitempty"`
+	Retryable             *bool                               `json:"retryable,omitempty"`
+	TurnCapabilityOutcome *AgentTurnCapabilityRecoveryOutcome `json:"turnCapabilityOutcome,omitempty"`
 }
 
 // ApiErrorDetailsCode defines model for ApiErrorDetails.Code.
@@ -4935,11 +5198,12 @@ type CreateWorkspaceAgentSessionRequest struct {
 	ReasoningEffort  *string                      `json:"reasoningEffort,omitempty"`
 
 	// RecordingId Developer create-session scenario waiting for this root Session.
-	RecordingId       *openapi_types.UUID     `json:"recordingId,omitempty"`
-	Speed             *string                 `json:"speed,omitempty"`
-	SubmitDiagnostics *AgentSubmitDiagnostics `json:"submitDiagnostics,omitempty"`
-	Title             *string                 `json:"title,omitempty"`
-	Visible           *bool                   `json:"visible,omitempty"`
+	RecordingId              *openapi_types.UUID            `json:"recordingId,omitempty"`
+	Speed                    *string                        `json:"speed,omitempty"`
+	SubmitDiagnostics        *AgentSubmitDiagnostics        `json:"submitDiagnostics,omitempty"`
+	Title                    *string                        `json:"title,omitempty"`
+	TurnCapabilityInvocation *AgentTurnCapabilityInvocation `json:"turnCapabilityInvocation,omitempty"`
+	Visible                  *bool                          `json:"visible,omitempty"`
 }
 
 // CreateWorkspaceAppFactoryJobRequest defines model for CreateWorkspaceAppFactoryJobRequest.
@@ -6236,8 +6500,9 @@ type SendWorkspaceAgentSessionInputRequest struct {
 	DisplayPrompt *string `json:"displayPrompt,omitempty"`
 
 	// Guidance When true, send this input as guidance to the currently active turn instead of starting a new turn.
-	Guidance          *bool                   `json:"guidance,omitempty"`
-	SubmitDiagnostics *AgentSubmitDiagnostics `json:"submitDiagnostics,omitempty"`
+	Guidance                 *bool                          `json:"guidance,omitempty"`
+	SubmitDiagnostics        *AgentSubmitDiagnostics        `json:"submitDiagnostics,omitempty"`
+	TurnCapabilityInvocation *AgentTurnCapabilityInvocation `json:"turnCapabilityInvocation,omitempty"`
 }
 
 // SendWorkspaceAgentSessionInputResponse defines model for SendWorkspaceAgentSessionInputResponse.
@@ -6991,6 +7256,9 @@ type WorkspaceAgentSession struct {
 	RootTurnId *string                      `json:"rootTurnId"`
 	Settings   AgentSessionComposerSettings `json:"settings"`
 	Title      *string                      `json:"title"`
+
+	// TurnCapabilityStates Durable session-scoped capability binding facts. This is separate from target capability catalogs and contains no provider config.
+	TurnCapabilityStates *[]AgentSessionTurnCapabilityState `json:"turnCapabilityStates,omitempty"`
 
 	// TuttiModeActivation Independent, session-scoped Tutti mode activation projection. Null until the first activation revision exists; capability references are audit records and never determine this state.
 	TuttiModeActivation *TuttiModeActivation `json:"tuttiModeActivation"`

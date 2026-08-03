@@ -27,6 +27,20 @@ test("session mapping requires and preserves the host-owned user identity", () =
   });
 });
 
+test("session mapping keeps the independent durable capability projection", () => {
+  const session = agentActivitySessionFromTuttidSession(
+    "workspace-1",
+    {
+      ...createSession(),
+      turnCapabilityStates: [{ semantic: "computerUse", state: "bound" }]
+    },
+    { currentUserId: "account-user-1" }
+  );
+  assert.deepEqual(session.turnCapabilityStates, [
+    { semantic: "computerUse", state: "bound" }
+  ]);
+});
+
 test("session mapping rejects an invalid message cursor", () => {
   assert.throws(
     () =>

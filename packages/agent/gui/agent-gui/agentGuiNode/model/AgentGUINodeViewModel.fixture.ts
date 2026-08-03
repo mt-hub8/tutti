@@ -59,6 +59,7 @@ export function groupAgentGUINodeViewModelFixture(
     composer: {
       handoffAgentTargets: flat.handoffAgentTargets,
       availableCommands: flat.availableCommands,
+      capabilityPresentations: [],
       availableSkills: flat.availableSkills,
       draftPrompt: flat.draftPrompt,
       draftContent: flat.draftContent,

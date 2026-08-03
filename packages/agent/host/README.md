@@ -30,9 +30,47 @@ The module owns:
   capability resolution, durable lineage, and startup recovery policy;
 - typed conformance scenarios under `conformance`.
 
+`SendInput.TurnCapabilityInvocation` is the optional provider-neutral gate for
+one exact ordinary Turn. It is not a `CapabilityRef`, runtime launch intent, or
+provider configuration payload: its current contract contains an opaque
+semantic identifier and, where a provider requires it, a closed-set explicit
+session-consent enum. Host only accepts a non-guidance request with
+caller-stable `TurnID` and `ClientSubmitID`, prepares the existing submit claim,
+acquires the Session lock, calls the narrow product admission seam, durably
+binds its opaque immutable execution plan to the prepared submit claim, carries
+that plan directly into Ensure, ensures
+the runtime Session, calls `RuntimeTurnCapabilityPort` after validating the
+base prompt, revalidates its one returned structured mention augmentation, and only then
+executes the Turn. The port receives the exact
+`(workspaceId, agentSessionId, turnId, clientSubmitId)` key and must return
+`already_bound`, `applied`, `rejected`, or `unknown`. Rejection releases the
+prepared claim; `applied`, `unknown`, and any delivery uncertainty after
+execution retain it and return `ErrSubmitDeliveryUnknown`, so Host never
+silently replays a provider mutation. Providers that do not install the port
+preserve the existing nil-invocation Send path unchanged.
+
+A rejected, pre-Exec result may additionally carry the closed provider-neutral
+recovery outcome `setup_required`, `enable_required`, `authorize_required`,
+`retry`, or `blocked`, plus a safe reason code. Host returns that outcome while
+releasing the claim: setup/recovery is not Turn delivery, so the original
+immutable prompt can be retried with the same `ClientSubmitID`. Provider
+diagnostics, paths, and authorization payloads never cross this contract.
+
+An `unknown` result may set `Retryable` only when its provider work is
+independently idempotent and no provider Turn could have started, such as a
+current-client runtime refresh. Host then releases the prepared claim and
+returns `ErrTurnCapabilityUnavailable`; a retry reuses the same submission
+identity and may Ensure again. This escape hatch never applies once provider
+Turn delivery is possible.
+
 `CreateSession` has two explicit modes: an empty session, or one command with
-`InitialContent`. The latter prepares its submit claim before provider delivery
-and rolls back the provisional canonical shell when delivery fails. Resume
+`InitialContent`. Its optional `TurnCapabilityInvocation` reuses the same
+semantic validator and runtime port as `SendInput`: after the provisional
+runtime and canonical shell exist, Host validates the base content, ensures the
+capability, revalidates the returned structured augmentation, then performs the
+single initial `Exec`. A rejected initial capability rolls the provisional
+shell and claim back without an initial submit; applied or unknown capability
+results retain the replay fence and return delivery-unknown. Resume
 eligibility is decided by `ResolveResumePolicy`: root sessions resume normally,
 explicit imports may recreate a missing provider session, and child,
 tombstoned, or non-resumable imports are rejected. Canonical titles may be

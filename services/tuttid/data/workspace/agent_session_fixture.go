@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	sessionreplay "github.com/tutti-os/tutti/packages/agent/session-replay"
 )
 
 const agentSessionFixtureSchemaVersion = 1
@@ -364,6 +366,7 @@ func exportFixtureTable(
 			}
 			recordValues[columns[index]] = value
 		}
+		sanitizeFixtureRuntimeContext(recordValues)
 		raw, err := json.Marshal(agentSessionFixtureRecord{
 			SchemaVersion: agentSessionFixtureSchemaVersion,
 			Table:         table,
@@ -378,6 +381,22 @@ func exportFixtureTable(
 	}
 	return rows.Err()
 }
+
+func sanitizeFixtureRuntimeContext(values map[string]any) {
+	for _, key := range []string{"runtime_context_json", "internal_runtime_context_json"} {
+		raw, ok := values[key].(string)
+		if !ok || raw == "" {
+			continue
+		}
+		var context map[string]any
+		if json.Unmarshal([]byte(raw), &context) != nil {
+			continue
+		}
+		values[key] = string(mustJSON(sessionreplay.SanitizeCapabilityTransientPayload(context)))
+	}
+}
+
+func mustJSON(value any) []byte { raw, _ := json.Marshal(value); return raw }
 
 func fixtureLinkedIDs(
 	ctx context.Context,

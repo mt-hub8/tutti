@@ -1,7 +1,8 @@
 import type { SubmitRequestedIntent } from "./pendingIntents.types.ts";
 import {
   clonePromptCapabilityReferences,
-  clonePromptRequiredSettingsPatch
+  clonePromptRequiredSettingsPatch,
+  clonePromptTurnCapabilityInvocation
 } from "./promptQueue.prompt.ts";
 import type { EngineQueuedPrompt } from "./promptQueue.types.ts";
 
@@ -11,6 +12,7 @@ export function queuedPromptFromSubmitIntent(
 ): EngineQueuedPrompt {
   return {
     ...clonePromptCapabilityReferences(intent.capabilityRefs),
+    ...clonePromptTurnCapabilityInvocation(intent.turnCapabilityInvocation),
     clientSubmitId: intent.clientSubmitId,
     content: intent.content,
     createdAtUnixMs: intent.requestedAtUnixMs,

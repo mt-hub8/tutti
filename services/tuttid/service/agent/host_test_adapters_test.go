@@ -224,6 +224,20 @@ func (a serviceHostStore) PrepareSubmitClaim(ctx context.Context, input storesql
 	return a.service.SubmitClaimStore.PrepareSubmitClaim(ctx, input)
 }
 
+func (a serviceHostStore) GetSubmitClaim(ctx context.Context, workspaceID, sessionID, clientSubmitID string) (storesqlite.SubmitClaim, bool, error) {
+	if a.service == nil || a.service.SubmitClaimStore == nil {
+		return storesqlite.SubmitClaim{}, false, nil
+	}
+	return a.service.SubmitClaimStore.GetSubmitClaim(ctx, workspaceID, sessionID, clientSubmitID)
+}
+
+func (a serviceHostStore) SetSubmitClaimCapabilityPlan(ctx context.Context, workspaceID, sessionID, clientSubmitID, planJSON string, now int64) (storesqlite.SubmitClaim, bool, error) {
+	if a.service == nil || a.service.SubmitClaimStore == nil {
+		return storesqlite.SubmitClaim{}, false, nil
+	}
+	return a.service.SubmitClaimStore.SetSubmitClaimCapabilityPlan(ctx, workspaceID, sessionID, clientSubmitID, planJSON, now)
+}
+
 func (a serviceHostStore) AcceptSubmitClaim(ctx context.Context, workspaceID, sessionID, clientSubmitID, turnID string, now int64) (storesqlite.SubmitClaim, bool, error) {
 	if a.service.SubmitClaimStore == nil {
 		return storesqlite.SubmitClaim{}, false, nil

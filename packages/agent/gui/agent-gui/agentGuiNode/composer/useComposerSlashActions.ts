@@ -1,26 +1,13 @@
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  type Dispatch,
-  type FormEvent,
-  type RefObject,
-  type SetStateAction
-} from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import type { AgentSessionCommand } from "../../../shared/agentSessionTypes";
+import type { AgentActivityTurnCapabilitySemantic } from "@tutti-os/agent-activity-core";
 import type {
   AgentComposerDraft,
-  AgentComposerDraftFile,
-  AgentComposerDraftImage,
-  AgentComposerDraftLargeText,
   AgentGUIProviderSkillOption
 } from "../model/agentGuiNodeTypes";
-import type { AgentRichTextEditorHandle } from "../agentRichText/AgentRichTextEditor";
 import { agentComposerFileMentionReferences } from "../agentRichText/agentMentionMarkdown";
 import { useOptionalAgentActivityRuntime } from "../../../agentActivityRuntime";
-import type { AgentSlashPaletteEntry } from "../AgentSlashCommandPalette";
 import type {
-  AgentSlashCommand,
   AgentSlashCommandCapability,
   SlashCommandSelectionEffect
 } from "../model/agentSlashCommandProviderPolicy";
@@ -45,66 +32,22 @@ import {
 } from "../model/agentComposerDraft";
 import { resolvePermissionModeControlsDisabled } from "../model/composerModeSelection";
 import { GOAL_MODE_SLASH_COMMAND } from "./AgentComposerChrome";
-import type { AgentComposerProps } from "./AgentComposer.types";
 import { reportAgentComposerDiagnostic } from "./agentComposerDiagnostics";
-
-type TriggerMatch = ReturnType<typeof getAgentComposerTriggerQueryMatch>;
-
-type Props = Pick<
-  AgentComposerProps,
-  | "workspaceId"
-  | "provider"
-  | "isSendingTurn"
-  | "isSubmittingPrompt"
-  | "showStopButton"
-  | "promptImagesSupported"
-  | "availableSkills"
-  | "composerSettings"
-  | "capabilityControlsReadOnly"
-  | "onDraftContentChange"
-  | "onSettingsChange"
-  | "onSubmit"
-  | "onSubmitEmpty"
-  | "onSubmitGuidance"
-  | "onCapabilitySettingsRequest"
-  | "onSlashStatusOpen"
-  | "onSlashStatusClose"
-  | "onPromptImagesUnsupported"
-  | "onRequestGitBranches"
-> & {
-  disabled: boolean;
-  submitDisabled: boolean;
-  canQueueWhileBusy: boolean;
-};
-
-interface UseComposerSlashActionsInput extends Props {
-  onTuttiModeActivate?: () => void;
-  tuttiModeSupported: boolean;
-  draftContent: AgentComposerDraft;
-  selectedProjectPath: string;
-  slashStatusAgentSessionId: string | null;
-  isSlashStatusPanelOpen: boolean;
-  slashCommandPolicy: AgentComposerProps["composerSettings"]["slashCommandPolicy"];
-  skillQueryMatch: TriggerMatch;
-  promptBeforeSelection: string;
-  resolvedSlashCommands: readonly AgentSlashCommand[];
-  slashPaletteEntries: readonly AgentSlashPaletteEntry[];
-  activeHighlight: number;
-  showSlashPalette: boolean;
-  showCommandMenuPanel: boolean;
-  isSelectedProjectMissing: boolean;
-  editorHandleRef: RefObject<AgentRichTextEditorHandle | null>;
-  draftPromptRef: RefObject<string>;
-  draftImagesRef: RefObject<AgentComposerDraftImage[]>;
-  draftFilesRef: RefObject<AgentComposerDraftFile[]>;
-  draftLargeTextsRef: RefObject<AgentComposerDraftLargeText[]>;
-  setPaletteDraftPrompt: Dispatch<SetStateAction<string>>;
-  setIsPaletteOpen: Dispatch<SetStateAction<boolean>>;
-  setIsReviewPickerOpen: Dispatch<SetStateAction<boolean>>;
-  setIsSlashStatusPanelOpen: Dispatch<SetStateAction<boolean>>;
-  setHighlightedIndex: Dispatch<SetStateAction<number>>;
+import {
+  confirmedTurnCapabilitySemantic,
+  hasProviderCapabilitySlash,
+  resolveTurnCapabilityInvocationForSlash,
+  resolveTurnCapabilitySlashSubmission,
+  type TurnCapabilityConsentConfirmation
+} from "./turnCapabilitySlashSubmission";
+import type { UseComposerSlashActionsInput } from "./useComposerSlashActions.types";
+import { capabilityUnavailableMessage } from "./capabilityUnavailablePresentation";
+import { useCapabilityUnavailableNotice } from "./useCapabilityUnavailableNotice";
+import { useProviderCapabilitySelection } from "./useProviderCapabilitySelection";
+export type TriggerMatch = ReturnType<typeof getAgentComposerTriggerQueryMatch>;
+function capabilityConsentSnapshot(draft: AgentComposerDraft): string {
+  return JSON.stringify(draft);
 }
-
 function useStableEventCallback<Args extends unknown[], Result>(
   callback: (...args: Args) => Result
 ): (...args: Args) => Result {
@@ -112,7 +55,6 @@ function useStableEventCallback<Args extends unknown[], Result>(
   callbackRef.current = callback;
   return useCallback((...args: Args) => callbackRef.current(...args), []);
 }
-
 export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
   const agentActivityRuntime = useOptionalAgentActivityRuntime();
   const {
@@ -126,6 +68,10 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     showStopButton,
     promptImagesSupported,
     availableSkills = [],
+    capabilityPresentations = [],
+    turnCapabilityStates = [],
+    tuttiModeActive,
+    agentSessionId,
     composerSettings,
     tuttiModeSupported,
     capabilityControlsReadOnly = false,
@@ -139,6 +85,7 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     onSlashStatusOpen,
     onSlashStatusClose,
     onPromptImagesUnsupported,
+    labels,
     onRequestGitBranches,
     draftContent,
     selectedProjectPath,
@@ -164,12 +111,36 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     setIsSlashStatusPanelOpen,
     setHighlightedIndex
   } = input;
+  const draftConsentScopeRef = useRef<string>(
+    `draft:${workspaceId}:${Math.random().toString(36).slice(2)}`
+  );
+  const {
+    capabilityUnavailableNotice,
+    clearCapabilityUnavailableNotice,
+    showCapabilityUnavailableNotice
+  } = useCapabilityUnavailableNotice({
+    capabilities: capabilityPresentations,
+    draftSnapshot: capabilityConsentSnapshot(draftContent),
+    modeActive: tuttiModeActive,
+    provider,
+    scope: agentSessionId || draftConsentScopeRef.current
+  });
+  const pendingCapabilityConsentRef =
+    useRef<TurnCapabilityConsentConfirmation | null>(null);
+  const [capabilityConsentDialog, setCapabilityConsentDialog] = useState<{
+    semantic: AgentActivityTurnCapabilitySemantic;
+    label: string;
+    scope: string;
+    snapshot: string;
+    modeActive: boolean;
+  } | null>(null);
   const clearSlashCommandDraft = useCallback((): void => {
+    clearCapabilityUnavailableNotice();
     draftPromptRef.current = "";
     setPaletteDraftPrompt("");
     setIsPaletteOpen(false);
     onDraftContentChange(emptyAgentComposerDraft());
-  }, [onDraftContentChange]);
+  }, [clearCapabilityUnavailableNotice, onDraftContentChange]);
 
   const closeSlashStatusPanel = useCallback((): void => {
     setIsSlashStatusPanelOpen(false);
@@ -216,15 +187,10 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     [clearSlashCommandDraft, onSubmit]
   );
 
-  // Bind the branch loader to this composer's session so the picker can fetch
-  // branches without the caller having to know the active agent session id.
   const reviewBranchLoader = useMemo(() => {
     if (!onRequestGitBranches) {
       return null;
     }
-    // Prefer the live agent session (its daemon-resolved cwd); fall back to the
-    // selected project path so the review picker still lists branches in the
-    // empty-hero composer before any session exists.
     if (slashStatusAgentSessionId) {
       return () =>
         onRequestGitBranches({ agentSessionId: slashStatusAgentSessionId });
@@ -446,16 +412,17 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     [draftContent, onDraftContentChange, promptBeforeSelection, skillQueryMatch]
   );
 
-  const selectPluginSettings = useCallback(
-    (plugin: AgentGUIProviderSkillOption): void => {
-      if (capabilityControlsReadOnly || plugin.semantic !== "computerUse") {
-        return;
-      }
-      onCapabilitySettingsRequest?.("computerUse");
-      setIsPaletteOpen(false);
-    },
-    [capabilityControlsReadOnly, onCapabilitySettingsRequest, setIsPaletteOpen]
-  );
+  const { selectPluginSettings, selectProviderCapability } =
+    useProviderCapabilitySelection({
+      capabilityControlsReadOnly,
+      clearUnavailableNotice: clearCapabilityUnavailableNotice,
+      draftContent,
+      draftPromptRef,
+      onCapabilitySettingsRequest,
+      onDraftContentChange,
+      setIsPaletteOpen,
+      setPaletteDraftPrompt
+    });
 
   const submitCurrentPrompt = useStableEventCallback(
     (options?: { guidance?: boolean }): void => {
@@ -500,10 +467,8 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
         files: currentDraftFiles,
         largeTexts: currentDraftLargeTexts
       });
+      const nextDraftSnapshot = capabilityConsentSnapshot(nextDraftContent);
       if (!agentComposerDraftHasContent(nextDraftContent)) {
-        // Empty-send override (e.g. plan review accept): only for a plain
-        // send, never for guidance, and only after the guards above agreed
-        // a submit is currently allowed at all.
         if (options?.guidance !== true) {
           onSubmitEmpty?.();
         }
@@ -514,6 +479,76 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
         return;
       }
       if (options?.guidance !== true) {
+        const nativeCapabilitySubmission = resolveTurnCapabilitySlashSubmission(
+          {
+            capabilities: capabilityPresentations,
+            draft: nextPrompt
+          }
+        );
+        // The descriptor only identifies a semantic capability. Backend
+        // selection is daemon product policy at the Host admission boundary;
+        // the renderer never converts this request into a legacy prompt.
+        const capabilitySubmission = nativeCapabilitySubmission;
+        if (capabilitySubmission) {
+          if (capabilitySubmission.kind === "unavailable") {
+            showCapabilityUnavailableNotice({
+              message: capabilityUnavailableMessage(
+                capabilitySubmission.status,
+                labels
+              ),
+              semantic: capabilitySubmission.semantic,
+              status: capabilitySubmission.status,
+              origin: "descriptorAvailability"
+            });
+            return;
+          }
+          if (!capabilitySubmission.task) return;
+          const consentScope = agentSessionId || draftConsentScopeRef.current;
+          const confirmedSemantic = confirmedTurnCapabilitySemantic({
+            pending: pendingCapabilityConsentRef.current,
+            scope: consentScope,
+            snapshot: nextDraftSnapshot,
+            modeActive: tuttiModeActive
+          });
+          if (
+            pendingCapabilityConsentRef.current &&
+            confirmedSemantic === null
+          ) {
+            pendingCapabilityConsentRef.current = null;
+          }
+          const invocationDecision = resolveTurnCapabilityInvocationForSlash({
+            capability: capabilitySubmission.capability,
+            confirmedSemantic,
+            states: turnCapabilityStates
+          });
+          if (invocationDecision.requiresConsent) {
+            setCapabilityConsentDialog({
+              semantic: capabilitySubmission.capability.semantic,
+              label: capabilitySubmission.capability.label,
+              scope: consentScope,
+              snapshot: nextDraftSnapshot,
+              modeActive: tuttiModeActive
+            });
+            return;
+          }
+          const submission = projectAgentComposerDraftSubmission({
+            draft: buildAgentComposerDraft({
+              prompt: capabilitySubmission.task,
+              images: currentDraftImages,
+              files: currentDraftFiles,
+              largeTexts: currentDraftLargeTexts
+            }),
+            skills: availableSkills
+          });
+          clearCapabilityUnavailableNotice();
+          onSubmit(submission.content, capabilitySubmission.displayPrompt, {
+            turnCapabilityInvocation: {
+              ...invocationDecision.invocation
+            }
+          });
+          pendingCapabilityConsentRef.current = null;
+          return;
+        }
         const slashCommandEffect = resolveSlashCommandSubmitEffect({
           browserSupported: Boolean(composerSettings.supportsBrowser),
           computerSupported: Boolean(composerSettings.supportsComputerUse),
@@ -521,8 +556,7 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
           commands: resolvedSlashCommands,
           draft: nextPrompt,
           provider,
-          policy: slashCommandPolicy,
-          skills: availableSkills
+          policy: slashCommandPolicy
         });
         if (slashCommandEffect) {
           if (
@@ -538,9 +572,16 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
           executeSlashCommandEffect(slashCommandEffect);
           return;
         }
+        if (
+          hasProviderCapabilitySlash({
+            capabilities: capabilityPresentations,
+            draft: nextPrompt
+          })
+        ) {
+          return;
+        }
       }
       setIsPaletteOpen(false);
-      // workspace-reference 保持为单条 mention，由 skill+CLI 按需解析。
       const submission = projectAgentComposerDraftSubmission({
         draft: nextDraftContent,
         skills: availableSkills
@@ -581,16 +622,13 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
           onSubmitGuidance(submission.content);
         }
       } else {
+        clearCapabilityUnavailableNotice();
         if (submission.displayPrompt) {
           onSubmit(submission.content, submission.displayPrompt);
         } else {
           onSubmit(submission.content);
         }
       }
-      // The controller owns draft clearing: an in-session send clears the
-      // composer optimistically at hand-off, and a rejected send restores this
-      // exact content, so a later edit is never overwritten by an in-flight
-      // submission.
     }
   );
 
@@ -601,6 +639,48 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     },
     [submitCurrentPrompt]
   );
+
+  const confirmCapabilityConsent = useCallback((): void => {
+    if (!capabilityConsentDialog) return;
+    const currentScope = agentSessionId || draftConsentScopeRef.current;
+    if (
+      currentScope !== capabilityConsentDialog.scope ||
+      tuttiModeActive !== capabilityConsentDialog.modeActive ||
+      capabilityConsentSnapshot(
+        buildAgentComposerDraft({
+          prompt: draftPromptRef.current,
+          images: draftImagesRef.current,
+          files: draftFilesRef.current,
+          largeTexts: draftLargeTextsRef.current
+        })
+      ) !== capabilityConsentDialog.snapshot
+    ) {
+      setCapabilityConsentDialog(null);
+      return;
+    }
+    pendingCapabilityConsentRef.current = {
+      semantic: capabilityConsentDialog.semantic,
+      scope: capabilityConsentDialog.scope,
+      snapshot: capabilityConsentDialog.snapshot,
+      modeActive: capabilityConsentDialog.modeActive
+    };
+    setCapabilityConsentDialog(null);
+    submitCurrentPrompt();
+  }, [
+    agentSessionId,
+    capabilityConsentDialog,
+    draftFilesRef,
+    draftImagesRef,
+    draftLargeTextsRef,
+    draftPromptRef,
+    submitCurrentPrompt,
+    tuttiModeActive
+  ]);
+
+  const dismissCapabilityConsent = useCallback((): void => {
+    pendingCapabilityConsentRef.current = null;
+    setCapabilityConsentDialog(null);
+  }, []);
 
   const handleSlashPaletteKeyDown = useStableEventCallback(
     (event: KeyboardEvent): boolean => {
@@ -631,7 +711,8 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
         const activeEntry = slashPaletteEntries[activeHighlight];
         if (
           (activeEntry?.type === "capability" ||
-            activeEntry?.type === "plugin") &&
+            activeEntry?.type === "plugin" ||
+            activeEntry?.type === "providerCapability") &&
           activeEntry.disabled
         ) {
           return true;
@@ -644,14 +725,16 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
           } else {
             selectCapability(activeEntry.capability);
           }
-        } else if (activeEntry?.type === "skill") {
-          selectSkill(activeEntry.skill);
+        } else if (activeEntry?.type === "providerCapability") {
+          selectProviderCapability(activeEntry.capability);
         } else if (activeEntry?.type === "plugin") {
           if (activeEntry.selectAction === "settings") {
             selectPluginSettings(activeEntry.plugin);
           } else {
             selectSkill(activeEntry.plugin);
           }
+        } else if (activeEntry?.type === "skill") {
+          selectSkill(activeEntry.skill);
         }
         return true;
       }
@@ -672,10 +755,14 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
 
   return {
     clearSlashCommandDraft,
+    capabilityConsentDialog,
+    capabilityUnavailableNotice,
     closeReviewPicker,
     closeSlashFloatingMenu,
     closeSlashStatusPanel,
+    dismissCapabilityConsent,
     composerControlsHardDisabled,
+    confirmCapabilityConsent,
     executeSlashCommandEffect,
     handleSlashCommandMenuKeyDown,
     handleSlashPaletteKeyDown,
@@ -685,6 +772,7 @@ export function useComposerSlashActions(input: UseComposerSlashActionsInput) {
     selectCapabilitySettings,
     selectCommand,
     selectPluginSettings,
+    selectProviderCapability,
     selectSkill,
     settingsControlsDisabled,
     submit,

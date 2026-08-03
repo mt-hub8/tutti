@@ -88,23 +88,9 @@ func prepareCodexHome(codexHome string, input *PrepareInput) (NativeCapabilityPl
 	}
 	logRuntimePrepareTrace("runtime_prepare.codex.session_config_resolved", *input, nil)
 
-	logRuntimePrepareTrace("runtime_prepare.codex.native_computer_requested", *input, nil)
-	computerAuth := input.AuthorizeCodexNativeComputerUse ||
-		normalizeCapabilityBackendPreference(input.ComputerBackendPreference) == CapabilityBackendPreferenceNative
-	if _, err := prepareCodexNativeComputerUse(codexHome, computerAuth); err != nil {
-		return NativeCapabilityPlan{}, err
-	}
-	logRuntimePrepareTrace("runtime_prepare.codex.native_computer_resolved", *input, nil)
-	logRuntimePrepareTrace("runtime_prepare.codex.native_browser_requested", *input, nil)
-	if _, err := prepareCodexNativeBrowser(codexHome); err != nil {
-		return NativeCapabilityPlan{}, err
-	}
-	logRuntimePrepareTrace("runtime_prepare.codex.native_browser_resolved", *input, nil)
-	logRuntimePrepareTrace("runtime_prepare.codex.native_sites_requested", *input, nil)
-	if _, err := prepareCodexNativeSites(codexHome); err != nil {
-		return NativeCapabilityPlan{}, err
-	}
-	logRuntimePrepareTrace("runtime_prepare.codex.native_sites_resolved", *input, nil)
+	// Base preparation deliberately does not enable any official plugin bundle.
+	// Browser, Sites, and Computer Use are materialized only by the Host-owned
+	// capability Ensure after its durable submit claim has been accepted.
 
 	plan, err := BuildCodexNativeCapabilityPlan(codexHome, NativeCapabilityResolveInput{
 		BrowserPreference:  input.BrowserBackendPreference,
@@ -137,6 +123,15 @@ func prepareCodexHome(codexHome string, input *PrepareInput) (NativeCapabilityPl
 	}
 	logRuntimePrepareTrace("runtime_prepare.codex.approval_rules_resolved", *input, nil)
 	return plan, nil
+}
+
+// codexNativeBundlesSuppressed makes an explicit Tutti backend a strict
+// boundary. Auto preserves pre-existing behavior; only a caller that selected
+// Tutti for all native families suppresses plugin configuration work.
+func codexNativeBundlesSuppressed(input PrepareInput) bool {
+	return normalizeCapabilityBackendPreference(input.BrowserBackendPreference) == CapabilityBackendPreferenceTutti &&
+		normalizeCapabilityBackendPreference(input.ComputerBackendPreference) == CapabilityBackendPreferenceTutti &&
+		normalizeCapabilityBackendPreference(input.SitesBackendPreference) == CapabilityBackendPreferenceTutti
 }
 
 func installCodexApprovalRules(codexHome string, input PrepareInput) error {

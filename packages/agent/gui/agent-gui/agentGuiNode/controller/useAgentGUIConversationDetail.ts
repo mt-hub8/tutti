@@ -29,7 +29,10 @@ import type {
   AgentGUIQueuedPromptVM
 } from "../model/agentGuiNodeTypes";
 import type { AgentGUIComposerTargetData } from "./agentGuiController.composerPresentation";
-import { providerSkillsFromComposerOptions } from "./agentGuiController.composerHelpers";
+import {
+  providerCapabilityPresentationsFromComposerOptions,
+  providerSkillsFromComposerOptions
+} from "./agentGuiController.composerHelpers";
 import {
   interactiveApprovalFromInteraction,
   interactivePromptFromInteraction
@@ -165,6 +168,13 @@ export function useAgentGUIConversationDetail(
       [input.providerComposerOptions]
     )
   );
+  const capabilityPresentations = useMemo(
+    () =>
+      providerCapabilityPresentationsFromComposerOptions(
+        input.providerComposerOptions
+      ),
+    [input.providerComposerOptions]
+  );
   const conversationModels = useMemo(() => {
     if (!projectionConversation) {
       return { conversation: null, detail: null };
@@ -298,6 +308,9 @@ export function useAgentGUIConversationDetail(
     activationError,
     activationErrorCode,
     availableCommands,
+    capabilityPresentations,
+    turnCapabilityStates:
+      input.activeSessionFamily.rootSession?.turnCapabilityStates ?? [],
     availableSkills,
     conversation,
     conversationDetail,

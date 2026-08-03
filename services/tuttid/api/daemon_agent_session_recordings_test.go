@@ -15,6 +15,23 @@ type agentSessionRecordingServiceStub struct {
 	recording  agentsessionreplay.Recording
 	renameName string
 	events     []agentsessionreplay.ActivityEvent
+	bindInput  agentsessionreplay.BindInput
+}
+
+func (s *agentSessionRecordingServiceStub) Bind(
+	_ context.Context,
+	input agentsessionreplay.BindInput,
+) (agentsessionreplay.Recording, error) {
+	s.bindInput = input
+	return agentsessionreplay.Recording{ID: input.RecordingID}, nil
+}
+
+func (s *agentSessionRecordingServiceStub) RecordActivityEvent(
+	_ context.Context,
+	event agentsessionreplay.ActivityEvent,
+) error {
+	s.events = append(s.events, event)
+	return nil
 }
 
 func (s *agentSessionRecordingServiceStub) RecordActivityEvents(

@@ -416,6 +416,125 @@ test("desktop agent activity adapter forwards typed submit diagnostics", async (
       workspaceId
     }
   ]);
+  assert.equal(
+    "turnCapabilityInvocation" in
+      (calls[0] as { request: SendWorkspaceAgentSessionInputRequest }).request,
+    false
+  );
+});
+
+test("desktop agent activity adapter atomically forwards a normalized turn capability invocation", async () => {
+  const calls: unknown[] = [];
+  const adapter = createDesktopAgentActivityAdapter({
+    tuttidClient: createTuttidClient({
+      async sendWorkspaceAgentSessionInput(
+        requestWorkspaceId,
+        agentSessionId,
+        request
+      ) {
+        calls.push({
+          agentSessionId,
+          request,
+          workspaceId: requestWorkspaceId
+        });
+        return createSendInputResponse(
+          createSession({ id: agentSessionId, status: "running" })
+        );
+      }
+    }),
+    runtimeApi: createRuntimeApi()
+  });
+
+  await adapter.sendInput({
+    agentSessionId: "agent-session-1",
+    clientSubmitId: "submit-browser",
+    content: [{ text: "open the page", type: "text" }],
+    displayPrompt: "Open page",
+    turnCapabilityInvocation: { semantic: "browserUse" },
+    workspaceId
+  });
+
+  assert.deepEqual(calls, [
+    {
+      agentSessionId: "agent-session-1",
+      request: {
+        clientSubmitId: "submit-browser",
+        content: [{ text: "open the page", type: "text" }],
+        displayPrompt: "Open page",
+        turnCapabilityInvocation: { semantic: "browserUse" }
+      } satisfies SendWorkspaceAgentSessionInputRequest,
+      workspaceId
+    }
+  ]);
+});
+
+test("desktop agent activity adapter forwards explicit session consent only in the same Computer invocation", async () => {
+  const calls: SendWorkspaceAgentSessionInputRequest[] = [];
+  const adapter = createDesktopAgentActivityAdapter({
+    tuttidClient: createTuttidClient({
+      async sendWorkspaceAgentSessionInput(
+        _workspaceId,
+        agentSessionId,
+        request
+      ) {
+        calls.push(request);
+        return createSendInputResponse(
+          createSession({ id: agentSessionId, status: "running" })
+        );
+      }
+    }),
+    runtimeApi: createRuntimeApi()
+  });
+
+  await adapter.sendInput({
+    agentSessionId: "agent-session-1",
+    clientSubmitId: "submit-computer",
+    content: [{ text: "inspect this screen", type: "text" }],
+    displayPrompt: "/computer inspect this screen",
+    turnCapabilityInvocation: {
+      semantic: "computerUse",
+      consent: "explicitSession"
+    },
+    workspaceId
+  });
+
+  assert.deepEqual(calls[0]?.turnCapabilityInvocation, {
+    semantic: "computerUse",
+    consent: "explicitSession"
+  });
+});
+
+test("desktop agent activity adapter rejects a supplied invalid turn capability before HTTP", async () => {
+  let sendCalls = 0;
+  const adapter = createDesktopAgentActivityAdapter({
+    tuttidClient: createTuttidClient({
+      async sendWorkspaceAgentSessionInput(
+        _requestWorkspaceId,
+        agentSessionId
+      ) {
+        sendCalls += 1;
+        return createSendInputResponse(
+          createSession({ id: agentSessionId, status: "running" })
+        );
+      }
+    }),
+    runtimeApi: createRuntimeApi()
+  });
+
+  await assert.rejects(
+    adapter.sendInput({
+      agentSessionId: "agent-session-1",
+      clientSubmitId: "submit-invalid",
+      content: [{ text: "hello", type: "text" }],
+      turnCapabilityInvocation: {
+        semantic: "browserUse",
+        pluginId: "not-allowed"
+      } as unknown as { semantic: "browserUse" },
+      workspaceId
+    }),
+    /agent_activity\.turn_capability_invocation_invalid/
+  );
+  assert.equal(sendCalls, 0);
 });
 
 test("desktop agent activity adapter rejects send responses without a canonical turn", async () => {
@@ -505,6 +624,47 @@ test("desktop agent activity adapter marks empty-cwd creates as no-project", asy
   });
 
   assert.deepEqual((createBody as { noProject?: boolean }).noProject, true);
+});
+
+test("desktop agent activity adapter atomically forwards an initial turn capability", async () => {
+  let createBody: CreateWorkspaceAgentSessionRequest | null = null;
+  const adapter = createDesktopAgentActivityAdapter({
+    tuttidClient: createTuttidClient({
+      async createWorkspaceAgentSession(_workspaceId, body) {
+        createBody = body;
+        return createSession({ id: body.agentSessionId });
+      }
+    }),
+    runtimeApi: createRuntimeApi()
+  });
+
+  await adapter.createSession({
+    clientSubmitId: "submit-browser",
+    agentSessionId: "agent-session-1",
+    agentTargetId: "local:codex",
+    initialContent: [{ type: "text", text: "open the release page" }],
+    initialDisplayPrompt: "/browser open the release page",
+    turnCapabilityInvocation: { semantic: "browserUse" },
+    workspaceId
+  });
+
+  assert.deepEqual(createBody, {
+    agentSessionId: "agent-session-1",
+    agentTargetId: "local:codex",
+    clientSubmitId: "submit-browser",
+    cwd: null,
+    initialContent: [{ type: "text", text: "open the release page" }],
+    initialDisplayPrompt: "/browser open the release page",
+    model: null,
+    noProject: true,
+    permissionModeId: null,
+    planMode: null,
+    reasoningEffort: null,
+    speed: null,
+    title: null,
+    turnCapabilityInvocation: { semantic: "browserUse" },
+    visible: null
+  } satisfies CreateWorkspaceAgentSessionRequest);
 });
 
 test("desktop agent activity adapter consumes the armed recording for one new session", async () => {

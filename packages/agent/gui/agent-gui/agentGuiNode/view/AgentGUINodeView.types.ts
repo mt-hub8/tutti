@@ -373,6 +373,11 @@ export interface AgentGUIViewLabels {
   computerUseCapabilityAuthorizationUnknownDescription: string;
   computerUseCapabilitySettingsLabel: string;
   computerUseCapabilitySettingsDescription: string;
+  providerCapabilitySetupRequiredDescription: string;
+  providerCapabilityDisabledDescription: string;
+  providerCapabilityDisabledByAdminDescription: string;
+  providerCapabilityUnsupportedDescription: string;
+  providerCapabilityAvailabilityUnknownDescription: string;
   slashStatusTitle: string;
   slashStatusSession: string;
   slashStatusBaseUrl: string;

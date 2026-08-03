@@ -1,5 +1,9 @@
 import type { AgentActivityComposerModelConfiguration } from "./composerModelConfiguration.types.ts";
 import type { AgentActivitySessionCapabilities } from "./sessionCapabilities.types.ts";
+import type {
+  AgentActivityTurnCapabilityConsent,
+  AgentActivityTurnCapabilitySemantic
+} from "./turnCapabilityInvocation.ts";
 
 export interface AgentActivityComposerSettingOption {
   value: string;
@@ -42,9 +46,13 @@ export interface AgentActivityComposerCapabilityOption {
   status:
     | "available"
     | "disabled"
+    | "disabledByAdmin"
     | "authRequired"
     | "setupRequired"
-    | "unsupported";
+    | "notInstalled"
+    | "unsupported"
+    | "unknown"
+    | "error";
   invocation: "promptItem" | "textTrigger" | "none";
   description?: string;
   source?: string;
@@ -54,7 +62,33 @@ export interface AgentActivityComposerCapabilityOption {
   trigger?: string;
   path?: string;
   /** Provider-native presentation and interaction descriptor. */
-  semantic?: "sites" | "browserUse" | "computerUse";
+  semantic?: AgentActivityTurnCapabilitySemantic;
+  /** Omitted daemon values are compatible with a create-time capability. */
+  invocationScope?: "createOnly" | "turn";
+  /** Explicit confirmation required for this invocation, never session state. */
+  consentRequirement?: AgentActivityTurnCapabilityConsent;
+}
+
+/**
+ * Provider-neutral presentation of a capability that can be selected from the
+ * Composer. It intentionally excludes plugin, marketplace, and filesystem
+ * identifiers.
+ */
+export interface AgentActivityComposerCapabilityPresentation {
+  semantic: AgentActivityTurnCapabilitySemantic;
+  name: string;
+  label: string;
+  trigger: string;
+  status: AgentActivityComposerCapabilityOption["status"];
+  invocation: AgentActivityComposerCapabilityOption["invocation"];
+  /** Missing scope is normalized to createOnly at the daemon adapter edge. */
+  invocationScope: "createOnly" | "turn";
+  consentRequirement?: AgentActivityTurnCapabilityConsent;
+  description?: string;
+  /** Product-projected availability detail; never provider implementation data. */
+  reason?: string;
+  /** The presentation action offered for an unavailable capability. */
+  nextAction?: "use" | "setup" | "retry" | "blocked";
 }
 
 export interface AgentActivityComposerPermissionModeOption {
@@ -143,6 +177,8 @@ export interface AgentActivityComposerOptions {
   /** Commands advertised by the live provider session and reusable after event replay gaps. */
   commands?: readonly AgentActivityComposerCommandOption[];
   capabilityCatalog?: AgentActivityComposerCapabilityOption[];
+  /** Authoritative provider-native capability presentation, when supplied. */
+  capabilityPresentations?: AgentActivityComposerCapabilityPresentation[];
   behavior: AgentActivityComposerBehavior;
   slashCommandPolicy?: AgentActivitySlashCommandPolicy | null;
   /** Credential-free model-plan identity projected from daemon runtime context. */

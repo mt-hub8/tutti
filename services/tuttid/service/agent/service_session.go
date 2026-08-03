@@ -134,6 +134,9 @@ func serviceSession(session ProviderRuntimeSession, resumable bool) Session {
 		UpdatedAt:         updatedAt,
 		Metadata:          metadata,
 		Isolation:         sessionIsolationFromRuntimeContext(internalRuntimeContext),
+		TurnCapabilityStates: turnCapabilityStatesFromRuntimeContext(
+			internalRuntimeContext,
+		),
 	}
 }
 
@@ -191,6 +194,7 @@ func sessionFromPersisted(session PersistedSession, resumable bool) Session {
 		RuntimeContext:    persistedSessionRuntimeContext(session),
 	}, resumable)
 	result.ActiveTurnID = strings.TrimSpace(session.ActiveTurnID)
+	result.TurnCapabilityStates = turnCapabilityStatesFromRuntimeContext(session.InternalRuntimeContext)
 	result.RailSectionKind = strings.TrimSpace(session.RailSectionKind)
 	result.RailProjectPath = strings.TrimSpace(session.RailProjectPath)
 	result.RailSectionKey = strings.TrimSpace(session.RailSectionKey)
@@ -259,6 +263,11 @@ func mergePersistedSessionState(session Session, persisted PersistedSession) Ses
 		session.UpdatedAt = timeFromUnixMSPointer(persisted.UpdatedAtUnixMS)
 	}
 	session.Metadata = persisted.Metadata
+	if len(session.TurnCapabilityStates) == 0 {
+		session.TurnCapabilityStates = turnCapabilityStatesFromRuntimeContext(
+			persisted.InternalRuntimeContext,
+		)
+	}
 	if isolation := sessionIsolationFromRuntimeContext(persisted.InternalRuntimeContext); isolation != nil {
 		session.Isolation = isolation
 	}

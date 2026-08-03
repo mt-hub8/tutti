@@ -1,4 +1,8 @@
-import type { ApiErrorDetails, ApiErrorResponse } from "./generated/index.ts";
+import type {
+  AgentTurnCapabilityRecoveryOutcome,
+  ApiErrorDetails,
+  ApiErrorResponse
+} from "./generated/index.ts";
 
 export type TuttidProtocolErrorCode = ApiErrorDetails["code"];
 export type TuttidProtocolErrorParams = NonNullable<ApiErrorDetails["params"]>;
@@ -33,6 +37,7 @@ export interface TuttidProtocolErrorOptions {
   reason?: string;
   retryable?: boolean;
   statusCode: number;
+  turnCapabilityOutcome?: AgentTurnCapabilityRecoveryOutcome;
 }
 
 export class TuttidProtocolError extends Error {
@@ -43,6 +48,7 @@ export class TuttidProtocolError extends Error {
   readonly reason?: string;
   readonly retryable: boolean;
   readonly statusCode: number;
+  readonly turnCapabilityOutcome?: AgentTurnCapabilityRecoveryOutcome;
 
   constructor(options: TuttidProtocolErrorOptions) {
     super(
@@ -57,6 +63,7 @@ export class TuttidProtocolError extends Error {
     this.reason = options.reason;
     this.retryable = options.retryable ?? false;
     this.statusCode = options.statusCode;
+    this.turnCapabilityOutcome = options.turnCapabilityOutcome;
   }
 }
 
@@ -91,7 +98,8 @@ export function normalizeTuttidError(
     params: details.params,
     reason: details.reason,
     retryable: details.retryable,
-    statusCode
+    statusCode,
+    turnCapabilityOutcome: details.turnCapabilityOutcome
   });
 }
 

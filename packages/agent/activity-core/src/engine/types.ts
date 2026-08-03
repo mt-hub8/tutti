@@ -297,6 +297,7 @@ export interface EngineEffectOptions {
 interface AgentSessionActivateEffectInputBase {
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   cwd?: string;
   initialContent?: AgentPromptContentBlock[];
   initialDisplayPrompt?: string;
@@ -486,6 +487,7 @@ import type {
   AgentActivitySessionSettings,
   AgentActivitySubmitDiagnostics,
   AgentActivitySubmitInteractiveInput,
+  AgentActivityTurnCapabilityInvocation,
   AgentPromptContentBlock
 } from "../types.ts";
 import type { AgentActivityRailPlacement } from "../railPlacement.types.ts";

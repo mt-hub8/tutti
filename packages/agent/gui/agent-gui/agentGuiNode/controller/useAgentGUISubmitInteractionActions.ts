@@ -223,6 +223,9 @@ export function useAgentGUISubmitInteractionActions(
       return;
     }
     setDetailError(null);
+    if (activation.retryFailedActivation(agentSessionId)) {
+      return;
+    }
     activation.activate({ mode: "existing", agentSessionId });
   }, [
     agentActivityRuntime,
@@ -239,6 +242,7 @@ export function useAgentGUISubmitInteractionActions(
       displayPrompt?: string,
       options?: {
         capabilityRefs?: AgentComposerSubmitOptions["capabilityRefs"];
+        turnCapabilityInvocation?: AgentComposerSubmitOptions["turnCapabilityInvocation"];
         immediate?: boolean;
         requiredSettingsPatch?: AgentComposerSubmitOptions["requiredSettingsPatch"];
         sendNow?: boolean;
@@ -301,6 +305,9 @@ export function useAgentGUISubmitInteractionActions(
         agentSessionId,
         ...(options?.capabilityRefs?.length
           ? { capabilityRefs: options.capabilityRefs }
+          : {}),
+        ...(options?.turnCapabilityInvocation
+          ? { turnCapabilityInvocation: options.turnCapabilityInvocation }
           : {}),
         clientSubmitId: submitTrace.clientSubmitId,
         content: normalizedContent,
@@ -407,6 +414,7 @@ export function useAgentGUISubmitInteractionActions(
       displayPromptText?: string,
       options?: {
         capabilityRefs?: AgentComposerSubmitOptions["capabilityRefs"];
+        turnCapabilityInvocation?: AgentComposerSubmitOptions["turnCapabilityInvocation"];
         requiredSettingsPatch?: AgentComposerSubmitOptions["requiredSettingsPatch"];
         sendNow?: boolean;
         sourceScopeKey?: string;
@@ -436,6 +444,7 @@ export function useAgentGUISubmitInteractionActions(
       }
       executePrompt(agentSessionId, normalizedContent, displayPromptText, {
         capabilityRefs: options?.capabilityRefs,
+        turnCapabilityInvocation: options?.turnCapabilityInvocation,
         requiredSettingsPatch: options?.requiredSettingsPatch,
         sendNow: options?.sendNow === true,
         sourceScopeKey: options?.sourceScopeKey,
@@ -516,6 +525,7 @@ export function useAgentGUISubmitInteractionActions(
               displayPromptText,
               {
                 capabilityRefs: options?.capabilityRefs,
+                turnCapabilityInvocation: options?.turnCapabilityInvocation,
                 requiredSettingsPatch: options?.requiredSettingsPatch,
                 sourceScopeKey: resolveAgentComposerDraftScopeKey({}),
                 trackDraft: true
@@ -574,6 +584,7 @@ export function useAgentGUISubmitInteractionActions(
         displayPromptText,
         {
           capabilityRefs: options?.capabilityRefs,
+          turnCapabilityInvocation: options?.turnCapabilityInvocation,
           requiredSettingsPatch: options?.requiredSettingsPatch,
           trackDraft: true
         }
@@ -626,6 +637,7 @@ export function useAgentGUISubmitInteractionActions(
         displayPromptText,
         {
           capabilityRefs: options?.capabilityRefs,
+          turnCapabilityInvocation: options?.turnCapabilityInvocation,
           sendNow: true,
           trackDraft: true
         }

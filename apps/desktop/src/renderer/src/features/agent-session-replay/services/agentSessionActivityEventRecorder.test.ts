@@ -229,6 +229,42 @@ test("buffers a clone instead of retaining mutable intent data", async () => {
   ]);
 });
 
+test("removes transient capability consent from published recording events", async () => {
+  let published = "";
+  const recorder = new AgentSessionActivityEventRecorder({
+    appender: {
+      async append(input) {
+        published = JSON.stringify(input.events);
+      }
+    }
+  });
+  recorder.start({ recordingId: "recording-1", scopeId: "workspace-1" });
+  recorder.observeIntent({
+    agentSessionId: "session-1",
+    clientSubmitId: "submit-1",
+    content: [{ text: "computer task", type: "text" }],
+    expiresAtUnixMs: 5_000,
+    requestedAtUnixMs: 90,
+    turnCapabilityInvocation: {
+      semantic: "computerUse",
+      consent: "explicitSession"
+    },
+    type: "submit/requested",
+    workspaceId: "workspace-1"
+  } satisfies EngineIntent);
+  await recorder.seal();
+
+  for (const forbidden of [
+    "turnCapabilityInvocation",
+    "explicitSession",
+    "consent",
+    "authorization",
+    "AuthorizeCodexNativeComputerUse"
+  ]) {
+    assert.equal(published.includes(forbidden), false, published);
+  }
+});
+
 test("tuttid appender strips local sequence fields from the HTTP request", async () => {
   let received: unknown;
   const appender = createTuttidAgentSessionActivityEventAppender({

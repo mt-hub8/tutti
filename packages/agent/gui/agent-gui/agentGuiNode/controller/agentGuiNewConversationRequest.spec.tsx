@@ -171,6 +171,30 @@ describe("P0 new-conversation placement scenarios", () => {
       }
     });
   });
+
+  it("keeps an initial native capability atomic with the new-session activation", async () => {
+    const scenario = renderNewConversationScenario({
+      activeConversation: null,
+      initialHomeProjectPath: null,
+      userProjects: []
+    });
+
+    act(() => scenario.requestNewConversation());
+    act(() =>
+      scenario.submitPrompt(
+        [{ type: "text", text: "open the release page" }],
+        "/browser open the release page",
+        { turnCapabilityInvocation: { semantic: "browserUse" } }
+      )
+    );
+
+    expect(await scenario.waitForActivation()).toMatchObject({
+      clientSubmitId: expect.any(String),
+      initialContent: [{ type: "text", text: "open the release page" }],
+      initialDisplayPrompt: "/browser open the release page",
+      turnCapabilityInvocation: { semantic: "browserUse" }
+    });
+  });
 });
 
 function renderNewConversationScenario(input: {

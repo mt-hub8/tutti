@@ -92,7 +92,8 @@ export function wrapLocalizedTuttidErrorIfSpecific(
     params: protocolError.params,
     reason: protocolError.reason,
     retryable: protocolError.retryable,
-    statusCode: protocolError.statusCode
+    statusCode: protocolError.statusCode,
+    turnCapabilityOutcome: protocolError.turnCapabilityOutcome
   });
   return wrapped;
 }

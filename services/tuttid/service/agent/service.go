@@ -14,6 +14,7 @@ import (
 	"github.com/tutti-os/tutti/services/tuttid/biz/agentprovider"
 	agenttargetbiz "github.com/tutti-os/tutti/services/tuttid/biz/agenttarget"
 	preferencesbiz "github.com/tutti-os/tutti/services/tuttid/biz/preferences"
+	tuttimodeactivationbiz "github.com/tutti-os/tutti/services/tuttid/biz/tuttimodeactivation"
 	workspacedata "github.com/tutti-os/tutti/services/tuttid/data/workspace"
 	claudecodeservice "github.com/tutti-os/tutti/services/tuttid/service/claudecode"
 	modelgatewayservice "github.com/tutti-os/tutti/services/tuttid/service/modelgateway"
@@ -60,6 +61,9 @@ func (s *Service) Create(ctx context.Context, workspaceID string, input CreateSe
 func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, input CreateSessionInput) (CreateSessionResult, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	input.AgentTargetID = strings.TrimSpace(input.AgentTargetID)
+	if err := validateTurnCapabilityInvocationForService(input.TurnCapabilityInvocation, true); err != nil {
+		return CreateSessionResult{}, err
+	}
 	launch, err := s.resolveCreateSessionLaunch(ctx, workspaceID, &input)
 	if err != nil {
 		return CreateSessionResult{}, err
@@ -70,6 +74,9 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 	}
 	input.Provider = provider
 	input.ProviderTargetRef = launch.ProviderTargetRef
+	if input.TurnCapabilityInvocation != nil && !isAuthoritativeCodexTurnCapabilityTarget(input.AgentTargetID, provider, input.ProviderTargetRef) {
+		return CreateSessionResult{}, ErrInvalidArgument
+	}
 	permissionModeExplicit := strings.TrimSpace(value(input.PermissionModeID)) != ""
 	if err := s.applyCreateSessionComposerDefaults(ctx, &input); err != nil {
 		return CreateSessionResult{}, err
@@ -208,10 +215,12 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 		ReasoningEffort:  normalizeReasoningEffortForLaunch(provider, input.ProviderTargetRef, value(input.ReasoningEffort)),
 		Speed:            normalizeSpeedForLaunch(provider, input.ProviderTargetRef, value(input.Speed)),
 	}
+	hostRuntimeContext := stampAgentExtensionComposerScope(input.RuntimeContext, input.ProviderTargetRef, cwd, runtimeSettings)
 	hostInput := agenthost.CreateSessionInput{
 		AgentSessionID: input.AgentSessionID, AgentTargetID: input.AgentTargetID, Provider: input.Provider,
 		InitialContent: normalizedContent, InitialDisplayPrompt: input.InitialDisplayPrompt,
-		Metadata: input.Metadata, ClientSubmitID: input.ClientSubmitID,
+		TurnCapabilityInvocation: input.TurnCapabilityInvocation,
+		Metadata:                 input.Metadata, ClientSubmitID: input.ClientSubmitID,
 		CapabilityRefs: append([]CapabilityReference(nil), input.CapabilityRefs...), Title: input.Title, Cwd: stringPointer(prepared.Cwd),
 		PermissionModeID: input.PermissionModeID,
 		Model:            stringPointer(runtimeSettings.Model),
@@ -219,15 +228,20 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 		BrowserUse:       input.BrowserUse, ComputerUse: input.ComputerUse,
 		ProviderTargetRef:      input.ProviderTargetRef,
 		ReasoningEffort:        stringPointer(runtimeSettings.ReasoningEffort),
-		RuntimeContext:         stampAgentExtensionComposerScope(input.RuntimeContext, input.ProviderTargetRef, cwd, runtimeSettings),
+		RuntimeContext:         hostRuntimeContext,
 		Speed:                  stringPointer(runtimeSettings.Speed),
 		ConversationDetailMode: input.ConversationDetailMode, Visible: input.Visible,
 		RailPlacement: input.RailPlacement,
 	}
-	if err := s.applyInitialTuttiModeActivation(ctx, workspaceID, input.AgentSessionID, input.InitialTuttiModeActivation); err != nil {
-		return CreateSessionResult{}, err
+	// An inactive native capability intent stays transient until Host admission.
+	if input.TurnCapabilityInvocation == nil || initialTuttiModeActive(input.InitialTuttiModeActivation) {
+		if err := s.applyInitialTuttiModeActivation(ctx, workspaceID, input.AgentSessionID, input.InitialTuttiModeActivation); err != nil {
+			return CreateSessionResult{}, err
+		}
 	}
 	var preparedTuttiModeTurnID string
+	var preparedTuttiModeSnapshot tuttimodeactivationbiz.TurnSnapshot
+	preparedTuttiModeSnapshotBound := false
 	_, typedGoal := agenthost.ParseTypedGoalControl(normalizedContent, false)
 	if len(normalizedContent) > 0 && !typedGoal {
 		canonicalTurnID, claimErr := s.existingSubmitCanonicalTurnID(ctx, workspaceID, input.AgentSessionID, input.ClientSubmitID, input.Metadata)
@@ -235,21 +249,19 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 			return CreateSessionResult{}, claimErr
 		}
 		if canonicalTurnID != "" {
-			// A durable claim already owns this submit: reuse its canonical
-			// turn instead of binding a fresh snapshot, so a retry reconciles
-			// against the claimed turn and never redispatches.
 			preparedTuttiModeTurnID = canonicalTurnID
 			hostInput.TurnID = canonicalTurnID
 		} else {
 			turnID, snapshot, snapshotErr := s.prepareTuttiModeExec(ctx, workspaceID, input.AgentSessionID, false, ProviderRuntimeSession{}, "")
 			if snapshotErr != nil {
 				if input.InitialTuttiModeActivation != nil {
-					activationErr := s.deleteTuttiModeActivationSessionState(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
-					snapshotErr = errors.Join(snapshotErr, activationErr)
+					_ = s.deleteTuttiModeActivationSessionState(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
 				}
 				return CreateSessionResult{}, snapshotErr
 			}
 			preparedTuttiModeTurnID = turnID
+			preparedTuttiModeSnapshot = snapshot
+			preparedTuttiModeSnapshotBound = s.TuttiModeActivations != nil
 			hostInput.TurnID = turnID
 			hostInput.TuttiModeSnapshot = runtimeTuttiModeTurnSnapshot(snapshot)
 		}
@@ -257,13 +269,33 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 	logAgentSubmitTrace("service.create.runtime_start_requested", workspaceID, input.AgentSessionID, input.ClientSubmitID, input.Metadata, nil)
 	hostResult, err := s.ApplicationHost().CreateSession(ctx, workspaceID, hostInput)
 	if err != nil {
+		deliveryUnknown := errors.Is(err, agenthost.ErrSubmitDeliveryUnknown) || errors.Is(err, ErrSubmitDeliveryUnknown)
+		if preparedTuttiModeSnapshotBound && !deliveryUnknown {
+			if abandonErr := s.abandonPreparedTuttiModeExec(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID, preparedTuttiModeTurnID, preparedTuttiModeSnapshot, false); abandonErr != nil {
+				return CreateSessionResult{}, deliveryUnknownError(abandonErr)
+			}
+		}
+		if !deliveryUnknown {
+			_ = s.deleteTuttiModeActivationSessionState(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
+		}
+		if recovered := turnCapabilityRecoveryError(err); recovered != err {
+			return CreateSessionResult{}, recovered
+		}
+		if errors.Is(err, agenthost.ErrTurnCapabilityRejected) || errors.Is(err, agenthost.ErrTurnCapabilityUnsupported) {
+			return CreateSessionResult{}, ErrInvalidArgument
+		}
 		// Delivery-unknown means provider acceptance is already possible:
 		// keep the prepared claim, bound snapshot, and activation so a retry
 		// reconciles instead of double-dispatching.
-		if !errors.Is(err, ErrSubmitDeliveryUnknown) {
-			_ = s.deleteTuttiModeActivationSessionState(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
-		}
 		return CreateSessionResult{}, err
+	}
+	if preparedTuttiModeTurnID != "" && strings.TrimSpace(hostResult.TurnID) != preparedTuttiModeTurnID {
+		return CreateSessionResult{}, ErrSubmitDeliveryUnknown
+	}
+	if preparedTuttiModeSnapshotBound {
+		if _, acceptErr := s.TuttiModeActivations.AcceptTurnSnapshot(ctx, workspaceID, input.AgentSessionID, preparedTuttiModeTurnID); acceptErr != nil {
+			return CreateSessionResult{}, deliveryUnknownError(acceptErr)
+		}
 	}
 	keepWorktree = true
 	session := hostResult.Session
@@ -282,9 +314,6 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 			Session: decorateIsolatedSession(result, isolation, isolationWarnings),
 			TurnID:  strings.TrimSpace(hostResult.TurnID),
 		}, getErr
-	}
-	if preparedTuttiModeTurnID != "" && strings.TrimSpace(hostResult.TurnID) != preparedTuttiModeTurnID {
-		return CreateSessionResult{}, ErrSubmitDeliveryUnknown
 	}
 	if len(normalizedContent) == 0 {
 		created, err := s.projectSessionForResponse(ctx, workspaceID, serviceSessionWithPersistedFreshness(
@@ -501,7 +530,7 @@ func (s *Service) prepareRuntimeWithModelEndpoint(
 		effectiveEndpoint = &endpointCopy
 		gatewayRegistered = true
 	}
-	prepared, err := s.RuntimePreparer.Prepare(ctx, runtimeprep.PrepareInput{
+	prepareInput := runtimeprep.PrepareInput{
 		WorkspaceID:               workspaceID,
 		AgentSessionID:            strings.TrimSpace(input.AgentSessionID),
 		AgentTargetID:             strings.TrimSpace(input.AgentTargetID),
@@ -531,7 +560,10 @@ func (s *Service) prepareRuntimeWithModelEndpoint(
 			input.CommandCapabilityProjection,
 		),
 		ExternalRolloutSourcePath: input.ExternalRolloutSourcePath,
-	})
+	}
+	// Base runtime preparation is capability-neutral. Native plugin bundles are
+	// materialized only by Host's claimed Turn Ensure, never by Create.
+	prepared, err := s.RuntimePreparer.Prepare(ctx, prepareInput)
 	if err != nil {
 		if gatewayRegistered {
 			s.ModelGateway.Unregister(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
@@ -548,13 +580,7 @@ func (s *Service) prepareRuntimeWithModelEndpoint(
 	}, nil
 }
 
-func modelEndpointUsesOpenAIProtocol(endpoint *runtimeprep.ModelEndpointConfig) bool {
-	return endpoint != nil &&
-		strings.TrimSpace(endpoint.Protocol) == "openai" &&
-		strings.TrimSpace(endpoint.BaseURL) != "" &&
-		strings.TrimSpace(endpoint.APIKey) != ""
-}
-
+// validateTurnCapabilityInvocationForService runs before product preparation.
 func sessionSkillBundlesToProviderSkillBundles(input []SessionSkillBundle) []runtimeprep.ProviderSkillBundle {
 	if len(input) == 0 {
 		return nil

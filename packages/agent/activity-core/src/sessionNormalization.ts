@@ -52,6 +52,9 @@ export function normalizeAgentActivitySession(
       modes: []
     },
     capabilities: source.capabilities ?? null,
+    ...(source.turnCapabilityStates
+      ? { turnCapabilityStates: source.turnCapabilityStates }
+      : {}),
     lifecycleCapabilities: source.lifecycleCapabilities
       ? {
           fork: source.lifecycleCapabilities.fork === true,

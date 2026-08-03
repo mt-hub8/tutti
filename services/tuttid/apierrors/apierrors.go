@@ -126,14 +126,23 @@ const (
 )
 
 type ProtocolError struct {
-	Code             tuttigenerated.ApiErrorDetailsCode
-	Reason           string
-	Params           map[string]any
-	Retryable        bool
-	DeveloperMessage string
-	CorrelationID    string
-	StatusCode       int
-	Cause            error
+	TurnCapabilityOutcome *TurnCapabilityOutcome
+	Code                  tuttigenerated.ApiErrorDetailsCode
+	Reason                string
+	Params                map[string]any
+	Retryable             bool
+	DeveloperMessage      string
+	CorrelationID         string
+	StatusCode            int
+	Cause                 error
+}
+
+// TurnCapabilityOutcome is the transport-safe projection of a pre-Exec
+// recovery result. It intentionally contains neither provider diagnostics nor
+// invocation/consent payloads.
+type TurnCapabilityOutcome struct {
+	NextAction string
+	ReasonCode string
 }
 
 func (e *ProtocolError) Error() string {
@@ -179,6 +188,21 @@ func WithParams(params map[string]any) Option {
 			return
 		}
 		target.Params = params
+	}
+}
+
+func WithRetryable(retryable bool) Option {
+	return func(target *ProtocolError) {
+		target.Retryable = retryable
+	}
+}
+
+func WithTurnCapabilityOutcome(outcome TurnCapabilityOutcome) Option {
+	return func(target *ProtocolError) {
+		target.TurnCapabilityOutcome = &TurnCapabilityOutcome{
+			NextAction: strings.TrimSpace(outcome.NextAction),
+			ReasonCode: strings.TrimSpace(outcome.ReasonCode),
+		}
 	}
 }
 
@@ -391,6 +415,23 @@ func Classify(err error) *ProtocolError {
 			params["availableModels"] = invalidModelErr.AvailableModels
 		}
 		return InvalidRequest("agent.invalid_model", WithCause(err), WithParams(params))
+	}
+	var turnCapabilityRecoveryErr *agentservice.TurnCapabilityRecoveryError
+	if errors.As(err, &turnCapabilityRecoveryErr) {
+		retryable := strings.TrimSpace(turnCapabilityRecoveryErr.NextAction) == "retry"
+		return InvalidRequest(
+			"agent.turn_capability_"+strings.TrimSpace(turnCapabilityRecoveryErr.ReasonCode),
+			WithCause(err),
+			WithRetryable(retryable),
+			WithParams(map[string]any{
+				"nextAction": strings.TrimSpace(turnCapabilityRecoveryErr.NextAction),
+				"reasonCode": strings.TrimSpace(turnCapabilityRecoveryErr.ReasonCode),
+			}),
+			WithTurnCapabilityOutcome(TurnCapabilityOutcome{
+				NextAction: turnCapabilityRecoveryErr.NextAction,
+				ReasonCode: turnCapabilityRecoveryErr.ReasonCode,
+			}),
+		)
 	}
 	var unsupportedPermissionErr *agentservice.UnsupportedPermissionModeIDError
 	if errors.As(err, &unsupportedPermissionErr) {

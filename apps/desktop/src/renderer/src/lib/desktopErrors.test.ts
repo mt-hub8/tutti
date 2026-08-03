@@ -63,6 +63,55 @@ test("resolveDesktopErrorMessage prefers reason-specific translations", () => {
   assert.equal(message, "Enter a workspace name to continue.");
 });
 
+test("resolveDesktopErrorMessage explains a retryable capability setup outcome", () => {
+  const message = resolveDesktopErrorMessage(
+    {
+      code: "invalid_request",
+      reason: "agent.turn_capability_plugin_not_ready",
+      developerMessage: "agent turn capability requires setup_required",
+      params: { nextAction: "setup_required", reasonCode: "plugin_not_ready" }
+    },
+    "en"
+  );
+
+  assert.equal(
+    message,
+    "Install or enable this capability in the provider, then send the queued task again."
+  );
+});
+
+test("resolveDesktopErrorMessage localizes classified capability plugin outcomes", () => {
+  const cases = [
+    [
+      "plugin_not_installed",
+      "Install this capability in the provider, then send the queued task again."
+    ],
+    [
+      "plugin_disabled",
+      "Enable this capability in the provider, then send the queued task again."
+    ],
+    [
+      "plugin_blocked",
+      "This capability is blocked by the provider and cannot be used in this conversation."
+    ]
+  ] as const;
+
+  for (const [reasonCode, expected] of cases) {
+    assert.equal(
+      resolveDesktopErrorMessage(
+        {
+          code: "invalid_request",
+          reason: `agent.turn_capability_${reasonCode}`,
+          developerMessage: "capability plugin state changed",
+          params: { reasonCode }
+        },
+        "en"
+      ),
+      expected
+    );
+  }
+});
+
 test("resolveDesktopErrorMessage falls back to grouped default translations", () => {
   const message = resolveDesktopErrorMessage(
     {

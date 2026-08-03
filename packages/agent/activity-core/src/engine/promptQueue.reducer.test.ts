@@ -95,6 +95,39 @@ test("immediate submit bypasses queue storage and preserves diagnostics", () => 
   );
 });
 
+test("rejects a supplied invalid turn capability before immediate or queued delivery", () => {
+  const invalidTurnCapabilityInvocation = {
+    semantic: "browserUse",
+    pluginId: "not-allowed"
+  } as unknown as { semantic: "browserUse" };
+
+  assert.throws(
+    () =>
+      reduce(
+        createInitialPromptQueueState(),
+        {
+          ...submit("prompt-invalid-immediate"),
+          routing: "immediate",
+          turnCapabilityInvocation: invalidTurnCapabilityInvocation
+        },
+        canonicalLifecycle("settled", 1)
+      ),
+    /agent_activity\.turn_capability_invocation_invalid/
+  );
+  assert.throws(
+    () =>
+      reduce(
+        createInitialPromptQueueState(),
+        {
+          ...submit("prompt-invalid-queued"),
+          turnCapabilityInvocation: invalidTurnCapabilityInvocation
+        },
+        canonicalLifecycle("running", 1)
+      ),
+    /agent_activity\.turn_capability_invocation_invalid/
+  );
+});
+
 test("queued Tutti capability reference remains structured through delivery", () => {
   const lifecycle = canonicalLifecycle("running", 1);
   const loaded = reduce(
@@ -128,6 +161,40 @@ test("queued Tutti capability reference remains structured through delivery", ()
     canonicalLifecycle("settled", 2)
   );
   assert.deepEqual(send(sending.commands[0]).capabilityRefs, capabilityRefs);
+});
+
+test("queued turn capability invocation remains atomic through delivery", () => {
+  const lifecycle = canonicalLifecycle("running", 1);
+  const loaded = reduce(
+    createInitialPromptQueueState(),
+    {
+      type: "session/snapshotReceived",
+      sessions: [activitySession("running", 1, "turn-1")]
+    },
+    lifecycle
+  );
+  const turnCapabilityInvocation = { semantic: "browserUse" as const };
+  const queued = reduce(
+    loaded.state,
+    { ...submit("prompt-browser"), turnCapabilityInvocation },
+    lifecycle
+  );
+
+  assert.deepEqual(
+    queued.state.recordsBySessionId["session-1"]?.prompts[0]
+      ?.turnCapabilityInvocation,
+    turnCapabilityInvocation
+  );
+
+  const sending = reduce(
+    queued.state,
+    turnUpserted(settledTurn("turn-1", 2)),
+    canonicalLifecycle("settled", 2)
+  );
+  assert.deepEqual(
+    send(sending.commands[0]).turnCapabilityInvocation,
+    turnCapabilityInvocation
+  );
 });
 
 test("send-now native guidance can send against a canonical active turn", () => {

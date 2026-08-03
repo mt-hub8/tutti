@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	agenthost "github.com/tutti-os/tutti/packages/agent/host"
 	agentactivitybiz "github.com/tutti-os/tutti/services/tuttid/biz/agentactivity"
+	agentproviderbiz "github.com/tutti-os/tutti/services/tuttid/biz/agentprovider"
+	agenttargetbiz "github.com/tutti-os/tutti/services/tuttid/biz/agenttarget"
 	tuttimodeactivationbiz "github.com/tutti-os/tutti/services/tuttid/biz/tuttimodeactivation"
 )
 
@@ -19,9 +22,19 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 		input.ClientSubmitID = strings.TrimSpace(legacyClientSubmitID)
 	}
 	if input.ClientSubmitID == "" {
-		// 同 CreateWithResult：调用方未提供提交幂等标识时生成一个，满足下游
-		// submit provenance 对 ClientSubmitID 非空的要求。
 		input.ClientSubmitID = uuid.NewString()
+	}
+	if invocation := input.TurnCapabilityInvocation; invocation != nil {
+		if input.Guidance || validateTurnCapabilityInvocationForService(invocation, false) != nil {
+			return SendInputResult{}, ErrInvalidArgument
+		}
+		// Binding a frozen Tutti-mode snapshot is a durable product effect. Do
+		// the exact built-in target check before that binding so a non-Codex
+		// session (including a custom target that merely calls itself Codex)
+		// cannot enter the capability lifecycle at all.
+		if err := s.validateExistingCodexTurnCapabilityTarget(ctx, workspaceID, agentSessionID); err != nil {
+			return SendInputResult{}, err
+		}
 	}
 	logAgentSubmitTrace("service.send.entered", workspaceID, agentSessionID, input.ClientSubmitID, input.Metadata, nil)
 	nodeStartedAt := time.Now()
@@ -38,10 +51,11 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 		CapabilityRefs: append([]CapabilityReference(nil), input.CapabilityRefs...),
 		Content:        normalizedContent, DisplayPrompt: input.DisplayPrompt,
 		Metadata: cloneMetadata(input.Metadata), ClientSubmitID: input.ClientSubmitID, Guidance: input.Guidance,
-		TurnID: input.TurnID,
+		TurnID: input.TurnID, TurnCapabilityInvocation: input.TurnCapabilityInvocation,
 	}
 	var preparedTurnID string
 	var preparedSnapshot tuttimodeactivationbiz.TurnSnapshot
+	preparedSnapshotBound := false
 	if _, typedGoal := agenthost.ParseTypedGoalControl(normalizedContent, input.Guidance); !typedGoal {
 		runtimeSession, _ := s.controller().Session(workspaceID, agentSessionID)
 		existingCanonicalTurnID, claimErr := s.existingSubmitCanonicalTurnID(ctx, workspaceID, agentSessionID, input.ClientSubmitID, input.Metadata)
@@ -49,8 +63,6 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 			return SendInputResult{}, claimErr
 		}
 		if existingCanonicalTurnID != "" {
-			// A durable claim already owns this submit: reuse its canonical
-			// turn so a retry reconciles instead of redispatching.
 			preparedTurnID = existingCanonicalTurnID
 			hostInput.TurnID = existingCanonicalTurnID
 		} else {
@@ -58,6 +70,7 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 			if err != nil {
 				return SendInputResult{}, err
 			}
+			preparedSnapshotBound = !input.Guidance && s.TuttiModeActivations != nil
 			hostInput.TurnID = preparedTurnID
 			hostInput.TuttiModeSnapshot = runtimeTuttiModeTurnSnapshot(preparedSnapshot)
 		}
@@ -67,11 +80,16 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 		hostInput,
 	)
 	if err != nil {
-		if preparedTurnID != "" {
-			abandonErr := s.abandonPreparedTuttiModeExec(context.WithoutCancel(ctx), workspaceID, agentSessionID, preparedTurnID, preparedSnapshot, input.Guidance)
-			if abandonErr != nil {
+		if preparedSnapshotBound && !errors.Is(err, agenthost.ErrSubmitDeliveryUnknown) && !errors.Is(err, ErrSubmitDeliveryUnknown) {
+			if abandonErr := s.abandonPreparedTuttiModeExec(context.WithoutCancel(ctx), workspaceID, agentSessionID, preparedTurnID, preparedSnapshot, input.Guidance); abandonErr != nil {
 				return SendInputResult{}, deliveryUnknownError(abandonErr)
 			}
+		}
+		if recovered := turnCapabilityRecoveryError(err); recovered != err {
+			return SendInputResult{}, recovered
+		}
+		if errors.Is(err, agenthost.ErrTurnCapabilityRejected) || errors.Is(err, agenthost.ErrTurnCapabilityUnsupported) {
+			return SendInputResult{}, ErrInvalidArgument
 		}
 		return SendInputResult{}, err
 	}
@@ -88,6 +106,11 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 	}
 	if preparedTurnID != "" && strings.TrimSpace(hostResult.TurnID) != preparedTurnID {
 		return SendInputResult{}, ErrSubmitDeliveryUnknown
+	}
+	if preparedSnapshotBound {
+		if _, acceptErr := s.TuttiModeActivations.AcceptTurnSnapshot(ctx, workspaceID, agentSessionID, preparedTurnID); acceptErr != nil {
+			return SendInputResult{}, deliveryUnknownError(acceptErr)
+		}
 	}
 	turnID := hostResult.TurnID
 	provider := strings.TrimSpace(hostResult.Session.Provider)
@@ -121,6 +144,42 @@ func (s *Service) SendInput(ctx context.Context, workspaceID string, agentSessio
 		TurnLifecycle:      hostResult.TurnLifecycle,
 		SubmitAvailability: hostResult.SubmitAvailability,
 	}, nil
+}
+
+// validateExistingCodexTurnCapabilityTarget resolves the persisted launch
+// identity without preparing a runtime. It is deliberately limited to the
+// capability-only admission precondition; ordinary sends retain their legacy
+// path unchanged.
+func (s *Service) validateExistingCodexTurnCapabilityTarget(ctx context.Context, workspaceID, agentSessionID string) error {
+	if s == nil || s.SessionReader == nil {
+		return ErrInvalidArgument
+	}
+	persisted, found := s.SessionReader.GetSession(strings.TrimSpace(workspaceID), strings.TrimSpace(agentSessionID))
+	if !found {
+		return ErrInvalidArgument
+	}
+	providerTargetRef, err := s.resolveProviderTargetRefForResume(ctx, persisted)
+	if err != nil {
+		return ErrInvalidArgument
+	}
+	if !isAuthoritativeCodexTurnCapabilityTarget(persisted.AgentTargetID, persisted.Provider, providerTargetRef) {
+		return ErrInvalidArgument
+	}
+	return nil
+}
+
+// isAuthoritativeCodexTurnCapabilityTarget accepts only the built-in local
+// Codex launch target resolved by the Agent Target authority. Provider text on
+// its own is descriptive metadata and is intentionally insufficient here.
+func isAuthoritativeCodexTurnCapabilityTarget(harnessTargetID string, provider string, providerTargetRef map[string]any) bool {
+	refProvider, _ := providerTargetRef["provider"].(string)
+	refTargetID, _ := providerTargetRef["targetId"].(string)
+	canonicalProvider := agentproviderbiz.Normalize(provider)
+	resolvedProvider := agentproviderbiz.Normalize(refProvider)
+	return strings.TrimSpace(harnessTargetID) == agenttargetbiz.IDLocalCodex &&
+		providerTargetRefKind(providerTargetRef) == agenttargetbiz.LaunchRefTypeBuiltinLocal &&
+		canonicalProvider != "" && canonicalProvider == resolvedProvider &&
+		strings.TrimSpace(refTargetID) == agenttargetbiz.IDLocalCodex
 }
 
 func (s *Service) observeTuttiModeSourceUserTurn(

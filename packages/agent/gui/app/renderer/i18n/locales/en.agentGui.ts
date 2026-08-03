@@ -134,6 +134,23 @@ export const enAgentGui = {
     cancel: "Cancel",
     confirm: "Enable full access"
   },
+  capabilityConsent: {
+    title: "Enable {{capability}} for this conversation?",
+    description:
+      "This enables {{capability}} only for the current conversation. It does not grant macOS permissions.",
+    cancel: "Cancel",
+    confirm: "Enable for this conversation"
+  },
+  providerCapabilitySetupRequiredDescription:
+    "Install or enable this capability, then retry. Your task stays in the composer.",
+  providerCapabilityDisabledDescription:
+    "Enable this capability, then retry. Your task stays in the composer.",
+  providerCapabilityDisabledByAdminDescription:
+    "This capability is disabled by your administrator.",
+  providerCapabilityUnsupportedDescription:
+    "This capability is not supported in the current environment.",
+  providerCapabilityAvailabilityUnknownDescription:
+    "Availability cannot be confirmed. Refresh options and retry.",
   fullAccessRestoredWarning: {
     title: "Full access is on",
     description:

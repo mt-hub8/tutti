@@ -559,7 +559,7 @@ func generatedAgentProviderComposerOptions(options agentservice.ComposerOptions)
 	if options.Behavior.NativePluginCatalogAuthoritative {
 		behavior.NativePluginCatalogAuthoritative = &options.Behavior.NativePluginCatalogAuthoritative
 	}
-	return tuttigenerated.AgentProviderComposerOptionsResponse{
+	result := tuttigenerated.AgentProviderComposerOptionsResponse{
 		Behavior:          behavior,
 		Capabilities:      generatedAgentSessionCapabilities(options.Capabilities),
 		CapabilityCatalog: generatedAgentProviderCapabilityOptions(options.CapabilityCatalog),
@@ -577,6 +577,11 @@ func generatedAgentProviderComposerOptions(options agentservice.ComposerOptions)
 		Skills:             generatedAgentProviderSkillOptions(options.Skills),
 		SlashCommandPolicy: generatedAgentSlashCommandPolicy(options.SlashCommandPolicy),
 	}
+	if options.ReservedTurnCapabilityAliases != nil {
+		aliases := generatedAgentReservedTurnCapabilityAliases(options.ReservedTurnCapabilityAliases)
+		result.ReservedTurnCapabilityAliases = &aliases
+	}
+	return result
 }
 
 func generatedAgentSlashCommandPolicy(
@@ -816,11 +821,33 @@ func generatedAgentSession(session agentservice.Session) (tuttigenerated.Workspa
 		RootTurnId:           optionalStringPointer(strings.TrimSpace(session.RootTurnID)),
 		Settings:             generatedSettings,
 		Title:                session.Title,
+		TurnCapabilityStates: generatedAgentSessionTurnCapabilityStates(session.TurnCapabilityStates),
 		TuttiModeActivation:  tuttiModeActivation,
 		UpdatedAtUnixMs:      updatedAtUnixMS,
 		Usage:                generatedAgentSessionUsage(session.Metadata.Usage),
 		Visible:              session.Visible,
 	}, nil
+}
+
+func generatedAgentSessionTurnCapabilityStates(states []agentservice.TurnCapabilityState) *[]tuttigenerated.AgentSessionTurnCapabilityState {
+	if len(states) == 0 {
+		return nil
+	}
+	result := make([]tuttigenerated.AgentSessionTurnCapabilityState, 0, len(states))
+	for _, state := range states {
+		semantic := tuttigenerated.AgentNativeCapabilitySemantic(strings.TrimSpace(state.Semantic))
+		if !semantic.Valid() || strings.TrimSpace(state.State) != "bound" {
+			continue
+		}
+		result = append(result, tuttigenerated.AgentSessionTurnCapabilityState{
+			Semantic: semantic,
+			State:    tuttigenerated.Bound,
+		})
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return &result
 }
 
 func int64Pointer(value int64) *int64 {

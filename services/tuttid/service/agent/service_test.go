@@ -3123,6 +3123,14 @@ func TestServiceGetComposerOptionsResolvesProviderFromAgentTargetID(t *testing.T
 	if options.RuntimeContext["agentTargetId"] != agenttargetbiz.IDLocalCodex {
 		t.Fatalf("runtimeContext agentTargetId = %#v, want %q", options.RuntimeContext["agentTargetId"], agenttargetbiz.IDLocalCodex)
 	}
+	if len(options.ReservedTurnCapabilityAliases) != 3 {
+		t.Fatalf("reserved aliases = %#v, want three fail-closed native aliases", options.ReservedTurnCapabilityAliases)
+	}
+	for _, alias := range options.ReservedTurnCapabilityAliases {
+		if alias.Status != "unknown" || alias.InvocationScope != "turn" {
+			t.Fatalf("reserved alias = %#v, want unknown current-turn descriptor", alias)
+		}
+	}
 }
 
 func TestServiceGetComposerOptionsPreservesGenericExtensionTargetAndProjectsSignedLiveComposerData(t *testing.T) {

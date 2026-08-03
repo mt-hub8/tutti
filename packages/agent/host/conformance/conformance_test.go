@@ -21,6 +21,7 @@ func TestPublishedScenarioCatalogsHaveUniqueNames(t *testing.T) {
 		{name: "coordinator", scenarios: CoordinatorScenarios(), wantCount: 7},
 		{name: "goal", scenarios: GoalScenarios(), wantCount: 8},
 		{name: "commit observer", scenarios: CommitObserverScenarios(), wantCount: 2},
+		{name: "turn capability", scenarios: turnCapabilityScenarioAdapters(TurnCapabilityScenarios()), wantCount: 12},
 	}
 	for _, catalog := range catalogs {
 		catalog := catalog
@@ -41,6 +42,14 @@ func TestPublishedScenarioCatalogsHaveUniqueNames(t *testing.T) {
 			}
 		})
 	}
+}
+
+func turnCapabilityScenarioAdapters(scenarios []TurnCapabilityScenario) []Scenario {
+	result := make([]Scenario, 0, len(scenarios))
+	for _, scenario := range scenarios {
+		result = append(result, Scenario{Name: scenario.Name})
+	}
+	return result
 }
 
 func TestScenarioOwnershipIsExplicit(t *testing.T) {

@@ -189,10 +189,6 @@ func ResolveNativeCapabilityPlan(
 			preference = normalizeCapabilityBackendPreference(input.ComputerPreference)
 		case CodexNativeCapabilitySites:
 			preference = normalizeCapabilityBackendPreference(input.SitesPreference)
-			if preference == CapabilityBackendPreferenceTutti {
-				// Sites has no Tutti fallback; treat as auto.
-				preference = CapabilityBackendPreferenceAuto
-			}
 		}
 		item.TuttiFallbackOK = tuttiOK && item.Capability != CodexNativeCapabilitySites
 		state, reason := nativeCapabilityStateFromEvidence(item)

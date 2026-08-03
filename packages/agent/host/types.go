@@ -459,7 +459,15 @@ type CreateSessionInput struct {
 	Provider             string
 	InitialContent       []PromptContentBlock
 	InitialDisplayPrompt string
-	Metadata             map[string]any
+	// TurnCapabilityInvocation is an optional provider-neutral semantic
+	// request to ensure one capability before this initial Turn executes. It
+	// is separate from CapabilityRefs, which are historical provenance only.
+	//
+	// It is valid only when InitialContent, ClientSubmitID, and TurnID identify
+	// an ordinary initial submission. Host generates TurnID before claiming a
+	// first submission when the caller has not yet observed one.
+	TurnCapabilityInvocation *TurnCapabilityInvocation
+	Metadata                 map[string]any
 	// ClientSubmitID is the caller-owned idempotency identity for the optional
 	// initial turn and overrides legacy Metadata["clientSubmitId"].
 	ClientSubmitID         string
@@ -483,12 +491,19 @@ type CreateSessionInput struct {
 }
 
 type SendInput struct {
-	CapabilityRefs    []CapabilityReference
-	TurnID            string
-	TuttiModeSnapshot *TuttiModeTurnSnapshot
-	Content           []PromptContentBlock
-	DisplayPrompt     string
-	Metadata          map[string]any
+	CapabilityRefs []CapabilityReference
+	// TurnCapabilityInvocation is a provider-neutral, semantic request to
+	// ensure one capability before this exact Turn executes. It is deliberately
+	// separate from CapabilityRefs, which are historical provenance only.
+	//
+	// A capability invocation is valid only for a non-guidance Send with caller
+	// supplied stable ClientSubmitID and TurnID values.
+	TurnCapabilityInvocation *TurnCapabilityInvocation
+	TurnID                   string
+	TuttiModeSnapshot        *TuttiModeTurnSnapshot
+	Content                  []PromptContentBlock
+	DisplayPrompt            string
+	Metadata                 map[string]any
 	// ClientSubmitID is the caller-owned idempotency identity. When present it
 	// overrides any legacy clientSubmitId value carried in Metadata.
 	ClientSubmitID string

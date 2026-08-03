@@ -6,6 +6,15 @@ export type { AgentActivityDisplayStatus } from "./displayStatus.types.ts";
 export type { AgentActivityRailPlacement } from "./railPlacement.types.ts";
 export { normalizeAgentActivityCapabilityReferences } from "./capabilityReferences.ts";
 export {
+  AGENT_ACTIVITY_INVALID_TURN_CAPABILITY_INVOCATION,
+  normalizeAgentActivityTurnCapabilityInvocation,
+  requireAgentActivityTurnCapabilityInvocation,
+  type AgentActivityTurnCapabilityConsent,
+  type AgentActivityTurnCapabilityInvocation,
+  type AgentActivityTurnCapabilitySemantic,
+  type AgentActivityTurnCapabilityState
+} from "./turnCapabilityInvocation.ts";
+export {
   normalizeAgentActivitySession,
   type AgentActivitySessionInput
 } from "./sessionNormalization.ts";
@@ -317,6 +326,7 @@ export type {
   AgentActivityGoalControlInput,
   AgentActivityGoalControlResult,
   AgentActivityComposerCapabilityOption,
+  AgentActivityComposerCapabilityPresentation,
   AgentActivityComposerBehavior,
   AgentActivityComposerOptions,
   AgentActivityComposerPermissionConfig,

@@ -35,7 +35,9 @@ type CanonicalMessageStore interface {
 }
 
 type CanonicalSubmitClaimStore interface {
+	GetSubmitClaim(context.Context, string, string, string) (storesqlite.SubmitClaim, bool, error)
 	PrepareSubmitClaim(context.Context, storesqlite.SubmitClaimPrepare) (storesqlite.SubmitClaim, bool, error)
+	SetSubmitClaimCapabilityPlan(context.Context, string, string, string, string, int64) (storesqlite.SubmitClaim, bool, error)
 	AcceptSubmitClaim(context.Context, string, string, string, string, int64) (storesqlite.SubmitClaim, bool, error)
 	DeleteSubmitClaim(context.Context, string, string, string) (bool, error)
 }
@@ -179,6 +181,20 @@ type RuntimeSessionLiveness interface {
 
 type RuntimeSubmitProvenanceReporter interface {
 	DurablyReportSubmitProvenance(context.Context, RuntimeSubmitProvenanceInput) error
+}
+
+// RuntimeTurnCapabilityPort performs provider-owned capability preparation for
+// one exact Turn. Host owns the surrounding submit claim, session lock, and
+// execution lifecycle; this port owns no Host lifecycle state.
+type RuntimeTurnCapabilityPort interface {
+	EnsureTurnCapability(context.Context, RuntimeTurnCapabilityInput) (RuntimeTurnCapabilityResult, error)
+}
+
+// RuntimeTurnCapabilityAdmissionPort is a product-policy check made only after
+// Host owns the submit claim and session lock, but before any provider resume,
+// capability mutation, or Exec. It has no provider lifecycle authority.
+type RuntimeTurnCapabilityAdmissionPort interface {
+	AdmitTurnCapability(context.Context, RuntimeTurnCapabilityAdmissionInput) RuntimeTurnCapabilityAdmissionResult
 }
 
 // RuntimeOperationStore is the complete durable coordinator boundary. Keeping

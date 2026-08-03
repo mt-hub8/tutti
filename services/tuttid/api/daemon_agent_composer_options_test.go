@@ -19,6 +19,40 @@ func TestGeneratedAgentProviderCapabilityOptionsPreservesNativeSemantic(t *testi
 	if len(options) != 1 || options[0].Semantic == nil || string(*options[0].Semantic) != "browserUse" {
 		t.Fatalf("capability semantic = %#v", options)
 	}
+	if options[0].InvocationScope != nil {
+		t.Fatalf("create-only capability scope = %#v, want omitted", options[0])
+	}
+}
+
+func TestGeneratedAgentProviderCapabilityOptionsProjectsTurnScope(t *testing.T) {
+	options := generatedAgentProviderCapabilityOptions([]agentservice.ComposerCapabilityOption{{
+		ID: "plugin:browser@openai-bundled", Kind: "plugin", Name: "browser", Label: "Browser",
+		Status: "available", Invocation: "promptItem", Semantic: "browserUse", InvocationScope: "turn",
+	}})
+	if len(options) != 1 || options[0].InvocationScope == nil || string(*options[0].InvocationScope) != "turn" {
+		t.Fatalf("turn capability scope = %#v", options)
+	}
+}
+
+func TestGeneratedAgentProviderCapabilityOptionsProjectsExplicitSessionConsentRequirement(t *testing.T) {
+	options := generatedAgentProviderCapabilityOptions([]agentservice.ComposerCapabilityOption{{
+		ID: "plugin:computer-use@openai-bundled", Kind: "plugin", Name: "computer-use", Label: "Computer",
+		Status: "available", Invocation: "promptItem", Semantic: "computerUse", InvocationScope: "turn", ConsentRequirement: "explicitSession",
+	}})
+	if len(options) != 1 || options[0].ConsentRequirement == nil || string(*options[0].ConsentRequirement) != "explicitSession" {
+		t.Fatalf("consent requirement = %#v", options)
+	}
+}
+
+func TestGeneratedAgentReservedTurnCapabilityAliasesPreservePresentationOnlyFields(t *testing.T) {
+	aliases := generatedAgentReservedTurnCapabilityAliases([]agentservice.ComposerReservedTurnCapabilityAlias{{
+		Alias: "/browser", Semantic: "browserUse", Name: "browser", Label: "Browser",
+		Status: "unknown", Reason: "inventory unavailable", NextAction: "retry",
+		Invocation: "promptItem", InvocationScope: "turn",
+	}})
+	if len(aliases) != 1 || aliases[0].Alias != "/browser" || string(aliases[0].Semantic) != "browserUse" || aliases[0].NextAction == nil || string(*aliases[0].NextAction) != "retry" {
+		t.Fatalf("reserved aliases = %#v", aliases)
+	}
 }
 
 // Requested-origin model entries (warm-catalog append of the requested model,

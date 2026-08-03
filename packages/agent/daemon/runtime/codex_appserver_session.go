@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -162,7 +163,18 @@ func (a *CodexAppServerAdapter) Start(ctx context.Context, session Session) (eve
 	})}, nil
 }
 
-func (a *CodexAppServerAdapter) Resume(ctx context.Context, session Session) (err error) {
+// Resume preserves ordinary resume semantics. Capability rebinds use the
+// private candidate validator below so an unverified replacement never closes
+// the old live client.
+func (a *CodexAppServerAdapter) Resume(ctx context.Context, session Session) error {
+	return a.resumeCandidate(ctx, session, nil)
+}
+
+func (a *CodexAppServerAdapter) resumeCandidate(
+	ctx context.Context,
+	session Session,
+	validator func(context.Context, *codexAppServerClient, string) error,
+) (err error) {
 	if strings.TrimSpace(session.ProviderSessionID) == "" {
 		return missingProviderSessionResumeError(session)
 	}
@@ -202,6 +214,14 @@ func (a *CodexAppServerAdapter) Resume(ctx context.Context, session Session) (er
 
 	account, authRequired := a.fetchAccount(ctx, client, session, trace)
 	if authRequired {
+		// A cold Resume deliberately retains the product's auth_required state.
+		// A warm replacement is different: committing this client-less state
+		// would make storeSession close a still-executable old client. Treat it
+		// as a failed replacement so the defer closes only the candidate and
+		// restores the old live runtime before returning an error to the caller.
+		if previousSession != nil && previousSession.client != nil {
+			return fmt.Errorf("%s: replacement resume requires authentication", a.config.authRequiredMessage)
+		}
 		a.storeSession(session.AgentSessionID, &codexAppServerSession{
 			threadID:        session.ProviderSessionID,
 			serverInfo:      serverInfo,
@@ -274,9 +294,7 @@ func (a *CodexAppServerAdapter) Resume(ctx context.Context, session Session) (er
 		liveState.usage = mergeACPUsageState(liveState.usage, replayedUsage)
 	}
 
-	started = true
-	keepSession = true
-	a.storeSession(session.AgentSessionID, &codexAppServerSession{
+	candidate := &codexAppServerSession{
 		client:                 client,
 		threadID:               strings.TrimSpace(session.ProviderSessionID),
 		serverInfo:             serverInfo,
@@ -290,7 +308,15 @@ func (a *CodexAppServerAdapter) Resume(ctx context.Context, session Session) (er
 		authState:              "authenticated",
 		acpLiveState:           liveState,
 		pendingRequests:        make(map[string]*pendingInteractiveRequest),
-	})
+	}
+	if validator != nil {
+		if err := validator(ctx, client, candidate.threadID); err != nil {
+			return err
+		}
+	}
+	started = true
+	keepSession = true
+	a.storeSession(session.AgentSessionID, candidate)
 	a.refreshStartupMetadataAsync(session, threadResult, len(models) == 0, a.config.rateLimits, trace)
 	// Mirror Start: push the command snapshot so a resumed session advertises
 	// review/compact/undo to the GUI (otherwise the slash palette and the

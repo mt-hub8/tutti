@@ -19,6 +19,7 @@ import { promptQueuePromptIdForClientSubmit } from "./promptQueue.lookup.ts";
 import {
   clonePromptCapabilityReferences,
   clonePromptRequiredSettingsPatch,
+  clonePromptTurnCapabilityInvocation,
   normalizeQueuedPrompt
 } from "./promptQueue.prompt.ts";
 import {
@@ -233,6 +234,7 @@ function sendCommandFromImmediateSubmit(
   return {
     agentSessionId: intent.agentSessionId,
     ...clonePromptCapabilityReferences(intent.capabilityRefs),
+    ...clonePromptTurnCapabilityInvocation(intent.turnCapabilityInvocation),
     commandId: `submit:send:${intent.clientSubmitId}`,
     clientSubmitId: intent.clientSubmitId,
     correlationId: intent.clientSubmitId,
@@ -616,6 +618,7 @@ function sendCommandFromQueuedPrompt(
   return {
     agentSessionId: record.agentSessionId,
     ...clonePromptCapabilityReferences(head.capabilityRefs),
+    ...clonePromptTurnCapabilityInvocation(head.turnCapabilityInvocation),
     commandId,
     ...(head.clientSubmitId ? { correlationId: head.clientSubmitId } : {}),
     clientSubmitId: head.clientSubmitId ?? head.id,

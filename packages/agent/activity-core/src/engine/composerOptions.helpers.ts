@@ -41,6 +41,9 @@ export function cloneAgentActivityComposerOptions(
     capabilityCatalog: (options.capabilityCatalog ?? []).map((capability) => ({
       ...capability
     })),
+    capabilityPresentations: (options.capabilityPresentations ?? []).map(
+      (capability) => ({ ...capability })
+    ),
     behavior: { ...options.behavior },
     slashCommandPolicy: cloneJSONValue(
       options.slashCommandPolicy ?? null

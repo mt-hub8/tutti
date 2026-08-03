@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestApplyNativeCapabilityExclusivityRemovesTuttiBrowserDelivery(t *testing.T) {
+func TestApplyNativeCapabilityExclusivityRetainsTuttiSkillsButRemovesAutomaticDelivery(t *testing.T) {
 	t.Parallel()
 
 	input := &PrepareInput{
@@ -42,19 +42,23 @@ func TestApplyNativeCapabilityExclusivityRemovesTuttiBrowserDelivery(t *testing.
 	if !input.ComputerUse {
 		t.Fatal("computer use should remain enabled for Tutti fallback")
 	}
-	if len(input.resolved.Skills) != 2 {
+	if len(input.resolved.Skills) != 3 {
 		t.Fatalf("skills = %#v", input.resolved.Skills)
 	}
+	var browserSkillFound bool
 	for _, skill := range input.resolved.Skills {
 		if skill.ID == "tutti/browser-use" {
-			t.Fatalf("browser skill should be removed: %#v", input.resolved.Skills)
+			browserSkillFound = true
 		}
 	}
-	if len(input.resolved.PolicySections) != 2 {
+	if !browserSkillFound {
+		t.Fatalf("browser skill should remain available for an explicit Tutti Turn: %#v", input.resolved.Skills)
+	}
+	if len(input.resolved.PolicySections) != 1 {
 		t.Fatalf("policy = %#v", input.resolved.PolicySections)
 	}
 	env := strings.Join(input.resolved.EnvOverlay, ",")
-	if strings.Contains(env, browserUseEnabledSessionEnv) || !strings.Contains(env, computerUseEnabledSessionEnv) {
+	if strings.Contains(env, browserUseEnabledSessionEnv) || strings.Contains(env, computerUseEnabledSessionEnv) || !strings.Contains(env, "OTHER=1") {
 		t.Fatalf("env = %#v", input.resolved.EnvOverlay)
 	}
 }

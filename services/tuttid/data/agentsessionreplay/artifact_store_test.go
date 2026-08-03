@@ -191,3 +191,29 @@ func TestArtifactStoreMakesActivityEventAssetPortable(t *testing.T) {
 		t.Fatalf("event = %s", raw)
 	}
 }
+
+func TestArtifactStorePublishesCapabilityTransientRedaction(t *testing.T) {
+	store := &Store{StateDir: t.TempDir()}
+	recording := replay.Recording{ID: "recording-privacy", ScopeID: "workspace-1", AgentTargetID: "local:codex", RootAgentSessionID: "session-1", Name: "2026-07-28T10:00:00.000Z", Mode: replay.ScenarioModeCreateSession, RecordingAtUnixMS: 1, StoppedAtUnixMS: 2}
+	layout := completeArtifactCandidate(t, store, recording)
+	recording.ArtifactKey = layout.StorageKey
+	if err := store.AppendActivityEvent(context.Background(), recording, replay.ActivityEvent{SchemaVersion: replay.CassetteSchemaVersion, Sequence: 2, Kind: replay.ActivityEventKindDirectStimulus, Type: "session.send", EventID: "event-privacy", ScopeID: "workspace-1", OccurredAtMS: 2, Payload: map[string]any{"nested": map[string]any{"turnCapabilityInvocation": map[string]any{"consent": "explicitSession"}, "authorization": "secret"}, "text": "turnCapabilityInvocation explicitSession consent"}}); err != nil {
+		t.Fatal(err)
+	}
+	artifact, err := store.Publish(context.Background(), recording, "cassette-privacy", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(artifact.Layout.StorageKey, replay.ActivityEventsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{`"turnCapabilityInvocation"`, `"authorization"`, `"consent"`} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("published events retained %s: %s", forbidden, raw)
+		}
+	}
+	if !strings.Contains(string(raw), "turnCapabilityInvocation explicitSession consent") {
+		t.Fatalf("user text was altered: %s", raw)
+	}
+}

@@ -9,9 +9,10 @@ describe("agentCapabilityUseSubmit", () => {
   it.each([
     ["browserUse", "/browser", "browser", ""],
     ["browserUse", "/browser open google.com", "browser", "open google.com"],
-    ["browserUse", "$浏览器 打开百度", "浏览器", "打开百度"],
+    ["browserUse", "$browser open google.com", "browser", "open google.com"],
+    ["browserUse", "/浏览器 打开百度", "浏览器", "打开百度"],
     ["computerUse", "/computer", "computer", ""],
-    ["computerUse", "$computer open Settings", "computer", "open Settings"],
+    ["computerUse", "/computer open Settings", "computer", "open Settings"],
     ["computerUse", "/电脑 点击确认", "电脑", "点击确认"]
   ] as const)(
     "parses the %s invocation %s",
@@ -53,18 +54,12 @@ describe("agentCapabilityUseSubmit", () => {
     );
   });
 
-  it("builds native browser plugin prompt when plugin skill is available", () => {
+  it("keeps the legacy generic handoff independent of provider plugin details", () => {
     const prompt = buildAgentCapabilityUseSubmitPrompt(
       "browserUse",
-      "open localhost",
-      {
-        name: "Browser",
-        path: "plugin://browser@openai-bundled",
-        trigger: "$browser"
-      }
+      "open localhost"
     );
-    expect(prompt).toContain("$browser");
-    expect(prompt).toContain("plugin://browser@openai-bundled");
-    expect(prompt).not.toContain("tutti browser");
+    expect(prompt).toContain("tutti browser");
+    expect(prompt).toContain("open localhost");
   });
 });

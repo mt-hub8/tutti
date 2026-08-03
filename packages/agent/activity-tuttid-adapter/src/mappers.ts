@@ -58,6 +58,9 @@ export function agentActivitySessionFromTuttidSession(
     tuttiModeActivation: session.tuttiModeActivation
       ? agentActivityTuttiModeActivationFromTuttid(session.tuttiModeActivation)
       : null,
+    turnCapabilityStates: session.turnCapabilityStates
+      ? cloneSerializable(session.turnCapabilityStates)
+      : [],
     imported: session.imported ?? false,
     visible: session.visible ?? true,
     resumable: session.resumable ?? false,

@@ -489,11 +489,11 @@ func composerCapabilityOptionFromCodexPlugin(plugin map[string]any, marketplaceN
 func codexNativeComposerPluginSemantic(pluginID string) string {
 	switch strings.TrimSpace(pluginID) {
 	case runtimeprep.CodexNativePluginSites:
-		return "sites"
+		return runtimeprep.CodexTurnCapabilitySemanticSites
 	case runtimeprep.CodexNativePluginBrowser:
-		return "browserUse"
+		return runtimeprep.CodexTurnCapabilitySemanticBrowserUse
 	case runtimeprep.CodexNativePluginComputerUse:
-		return "computerUse"
+		return runtimeprep.CodexTurnCapabilitySemanticComputerUse
 	default:
 		return ""
 	}
@@ -544,16 +544,27 @@ func codexPluginIDFromName(name string, marketplaceName string) string {
 func codexPluginCapabilityStatus(plugin map[string]any) string {
 	availability := strings.ToUpper(codexTextValue(plugin, "availability"))
 	if availability == "DISABLED_BY_ADMIN" {
-		return "disabled"
+		return "disabledByAdmin"
 	}
 	installPolicy := strings.ToUpper(codexTextValue(plugin, "installPolicy"))
-	if installPolicy == "NOT_AVAILABLE" {
-		return "setupRequired"
+	if availability == "UNSUPPORTED" || availability == "NOT_AVAILABLE" || installPolicy == "NOT_AVAILABLE" {
+		return "unsupported"
 	}
-	if installed, ok := codexBoolValue(plugin, "installed"); ok && !installed {
-		return "setupRequired"
+	// The Composer projection must never advertise a plugin as ready on a
+	// partial/forward-compatible plugin/list response: execution revalidates
+	// precisely the same protocol facts immediately before the Turn.
+	if availability != "AVAILABLE" || (installPolicy != "AVAILABLE" && installPolicy != "INSTALLED_BY_DEFAULT") {
+		return "unknown"
 	}
-	if enabled, ok := codexBoolValue(plugin, "enabled"); ok && !enabled {
+	installed, installedKnown := codexBoolValue(plugin, "installed")
+	enabled, enabledKnown := codexBoolValue(plugin, "enabled")
+	if !installedKnown || !enabledKnown {
+		return "unknown"
+	}
+	if !installed {
+		return "notInstalled"
+	}
+	if !enabled {
 		return "disabled"
 	}
 	return "available"

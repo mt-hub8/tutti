@@ -63,3 +63,20 @@ CREATE INDEX IF NOT EXISTS idx_workspace_agent_submit_claims_canonical_turn
 	}
 	return nil
 }
+
+// V3 stores only the Host-owned opaque execution-plan snapshot needed to
+// resume a prepared capability submission without re-reading mutable product
+// policy. The plan must not contain provider credentials or raw consent.
+func (s *Store) applyWorkspaceAgentSubmitClaimsV3(ctx context.Context) error {
+	applied, err := s.hasMigration(ctx, schemaMigrationWorkspaceAgentSubmitClaimsV3)
+	if err != nil || applied {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx, `
+ALTER TABLE workspace_agent_submit_claims
+ADD COLUMN turn_capability_plan_json TEXT NOT NULL DEFAULT '';
+`); err != nil {
+		return fmt.Errorf("migrate workspace agent submit claims v3: %w", err)
+	}
+	return s.recordMigration(ctx, schemaMigrationWorkspaceAgentSubmitClaimsV3)
+}

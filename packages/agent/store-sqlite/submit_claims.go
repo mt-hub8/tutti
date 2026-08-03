@@ -9,24 +9,27 @@ import (
 )
 
 var ErrSubmitClaimTurnConflict = errors.New("workspace agent submit claim canonical turn conflict")
+var ErrSubmitClaimPlanConflict = errors.New("workspace agent submit claim capability plan conflict")
 
 type SubmitClaim struct {
-	WorkspaceID     string
-	AgentSessionID  string
-	ClientSubmitID  string
-	Status          string
-	CanonicalTurnID string
-	TurnID          string
-	CreatedAtUnixMS int64
-	UpdatedAtUnixMS int64
+	WorkspaceID            string
+	AgentSessionID         string
+	ClientSubmitID         string
+	Status                 string
+	CanonicalTurnID        string
+	TurnCapabilityPlanJSON string
+	TurnID                 string
+	CreatedAtUnixMS        int64
+	UpdatedAtUnixMS        int64
 }
 
 type SubmitClaimPrepare struct {
-	WorkspaceID     string
-	AgentSessionID  string
-	ClientSubmitID  string
-	CanonicalTurnID string
-	NowUnixMS       int64
+	WorkspaceID            string
+	AgentSessionID         string
+	ClientSubmitID         string
+	CanonicalTurnID        string
+	TurnCapabilityPlanJSON string
+	NowUnixMS              int64
 }
 
 func (s *Store) PrepareSubmitClaim(ctx context.Context, input SubmitClaimPrepare) (SubmitClaim, bool, error) {
@@ -34,6 +37,7 @@ func (s *Store) PrepareSubmitClaim(ctx context.Context, input SubmitClaimPrepare
 	input.AgentSessionID = strings.TrimSpace(input.AgentSessionID)
 	input.ClientSubmitID = strings.TrimSpace(input.ClientSubmitID)
 	input.CanonicalTurnID = strings.TrimSpace(input.CanonicalTurnID)
+	input.TurnCapabilityPlanJSON = strings.TrimSpace(input.TurnCapabilityPlanJSON)
 	if input.WorkspaceID == "" || input.AgentSessionID == "" || input.ClientSubmitID == "" || input.CanonicalTurnID == "" || input.NowUnixMS <= 0 {
 		return SubmitClaim{}, false, fmt.Errorf("invalid workspace agent submit claim")
 	}
@@ -65,8 +69,8 @@ func (s *Store) PrepareSubmitClaim(ctx context.Context, input SubmitClaimPrepare
 		return SubmitClaim{}, false, err
 	}
 	result, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO workspace_agent_submit_claims
-		(workspace_id, agent_session_id, client_submit_id, status, turn_id, created_at_unix_ms, updated_at_unix_ms, canonical_turn_id)
-		VALUES (?, ?, ?, 'prepared', NULL, ?, ?, ?)`, input.WorkspaceID, input.AgentSessionID, input.ClientSubmitID, input.NowUnixMS, input.NowUnixMS, input.CanonicalTurnID)
+		(workspace_id, agent_session_id, client_submit_id, status, turn_id, created_at_unix_ms, updated_at_unix_ms, canonical_turn_id, turn_capability_plan_json)
+		VALUES (?, ?, ?, 'prepared', NULL, ?, ?, ?, ?)`, input.WorkspaceID, input.AgentSessionID, input.ClientSubmitID, input.NowUnixMS, input.NowUnixMS, input.CanonicalTurnID, input.TurnCapabilityPlanJSON)
 	if err != nil {
 		return SubmitClaim{}, false, fmt.Errorf("prepare submit claim: %w", err)
 	}
@@ -150,6 +154,48 @@ func (s *Store) AcceptSubmitClaim(ctx context.Context, workspaceID, agentSession
 	return claim, updated, nil
 }
 
+func (s *Store) SetSubmitClaimCapabilityPlan(ctx context.Context, workspaceID, agentSessionID, clientSubmitID, planJSON string, nowUnixMS int64) (SubmitClaim, bool, error) {
+	workspaceID, agentSessionID, clientSubmitID, planJSON = strings.TrimSpace(workspaceID), strings.TrimSpace(agentSessionID), strings.TrimSpace(clientSubmitID), strings.TrimSpace(planJSON)
+	if workspaceID == "" || agentSessionID == "" || clientSubmitID == "" || planJSON == "" || nowUnixMS <= 0 {
+		return SubmitClaim{}, false, fmt.Errorf("invalid submit claim capability plan")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return SubmitClaim{}, false, fmt.Errorf("begin submit claim capability plan: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	claim, found, err := getSubmitClaimTx(ctx, tx, workspaceID, agentSessionID, clientSubmitID)
+	if err != nil || !found {
+		return claim, false, err
+	}
+	if claim.TurnCapabilityPlanJSON != "" {
+		if claim.TurnCapabilityPlanJSON != planJSON {
+			return claim, false, ErrSubmitClaimPlanConflict
+		}
+		if err := tx.Commit(); err != nil {
+			return SubmitClaim{}, false, err
+		}
+		return claim, false, nil
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE workspace_agent_submit_claims SET turn_capability_plan_json=?, updated_at_unix_ms=?
+	WHERE workspace_id=? AND agent_session_id=? AND client_submit_id=? AND status='prepared' AND turn_capability_plan_json=''`, planJSON, nowUnixMS, workspaceID, agentSessionID, clientSubmitID)
+	if err != nil {
+		return SubmitClaim{}, false, fmt.Errorf("set submit claim capability plan: %w", err)
+	}
+	updated, err := rowsWereAffected(result, "set submit claim capability plan")
+	if err != nil {
+		return SubmitClaim{}, false, err
+	}
+	claim, found, err = getSubmitClaimTx(ctx, tx, workspaceID, agentSessionID, clientSubmitID)
+	if err != nil || !found {
+		return claim, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return SubmitClaim{}, false, err
+	}
+	return claim, updated, nil
+}
+
 func (s *Store) DeleteSubmitClaim(ctx context.Context, workspaceID, agentSessionID, clientSubmitID string) (bool, error) {
 	workspaceID, agentSessionID, clientSubmitID = strings.TrimSpace(workspaceID), strings.TrimSpace(agentSessionID), strings.TrimSpace(clientSubmitID)
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -194,7 +240,7 @@ func (s *Store) GetSubmitClaim(ctx context.Context, workspaceID, agentSessionID,
 func (s *Store) getSubmitClaim(ctx context.Context, workspaceID, agentSessionID, clientSubmitID string) (SubmitClaim, bool, error) {
 	return scanSubmitClaim(s.db.QueryRowContext(
 		ctx,
-		`SELECT workspace_id, agent_session_id, client_submit_id, status, canonical_turn_id, turn_id, created_at_unix_ms, updated_at_unix_ms
+		`SELECT workspace_id, agent_session_id, client_submit_id, status, canonical_turn_id, turn_id, created_at_unix_ms, updated_at_unix_ms, turn_capability_plan_json
 		FROM workspace_agent_submit_claims WHERE workspace_id=? AND agent_session_id=? AND client_submit_id=?`,
 		workspaceID,
 		agentSessionID,
@@ -209,7 +255,7 @@ func getSubmitClaimTx(
 ) (SubmitClaim, bool, error) {
 	return scanSubmitClaim(tx.QueryRowContext(
 		ctx,
-		`SELECT workspace_id, agent_session_id, client_submit_id, status, canonical_turn_id, turn_id, created_at_unix_ms, updated_at_unix_ms
+		`SELECT workspace_id, agent_session_id, client_submit_id, status, canonical_turn_id, turn_id, created_at_unix_ms, updated_at_unix_ms, turn_capability_plan_json
 		FROM workspace_agent_submit_claims WHERE workspace_id=? AND agent_session_id=? AND client_submit_id=?`,
 		workspaceID,
 		agentSessionID,
@@ -230,6 +276,7 @@ func scanSubmitClaim(row rowScanner) (SubmitClaim, bool, error) {
 		&turnID,
 		&claim.CreatedAtUnixMS,
 		&claim.UpdatedAtUnixMS,
+		&claim.TurnCapabilityPlanJSON,
 	)
 	if err == sql.ErrNoRows {
 		return SubmitClaim{}, false, nil

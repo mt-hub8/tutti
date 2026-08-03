@@ -6,24 +6,28 @@ import (
 )
 
 var (
-	ErrInvalidArgument                   = errors.New("invalid agent session request")
-	ErrRailPlacementConflict             = errors.New("agent session rail placement conflicts with canonical state")
-	ErrSessionNotFound                   = errors.New("workspace agent session not found")
-	ErrProviderSessionNotEstablished     = errors.New("provider session was never established")
-	ErrSubmitDeliveryUnknown             = errors.New("agent submit delivery is still being confirmed")
-	ErrSessionTitleTooLong               = errors.New("agent session title is too long")
-	ErrRuntimeSessionDisconnected        = errors.New("agent runtime session is disconnected")
-	ErrInteractionNotFound               = errors.New("agent interaction was not found")
-	ErrRuntimeOperationInProgress        = errors.New("agent runtime operation is already in progress")
-	ErrRuntimeOperationFailed            = errors.New("agent runtime operation failed")
-	ErrRuntimeOperationIdentityMismatch  = errors.New("agent runtime operation identity is inconsistent")
-	ErrGoalConsumerUnavailable           = errors.New("agent goal reconcile consumer is unavailable")
-	ErrGoalGenerationFenceUnavailable    = errors.New("agent goal generation fence consumer is unavailable")
-	ErrRuntimeSessionLivenessUnavailable = errors.New("agent runtime session liveness is unavailable")
-	ErrSessionForkUnsupported            = errors.New("agent session through-turn fork is unsupported")
-	ErrSessionForkInProgress             = errors.New("agent session fork is in progress")
-	ErrSessionForkDeliveryUnknown        = errors.New("agent session fork provider delivery is unknown")
-	ErrSessionForkFailed                 = errors.New("agent session fork failed")
+	ErrInvalidArgument                    = errors.New("invalid agent session request")
+	ErrRailPlacementConflict              = errors.New("agent session rail placement conflicts with canonical state")
+	ErrSessionNotFound                    = errors.New("workspace agent session not found")
+	ErrProviderSessionNotEstablished      = errors.New("provider session was never established")
+	ErrSubmitDeliveryUnknown              = errors.New("agent submit delivery is still being confirmed")
+	ErrTurnCapabilityUnsupported          = errors.New("agent turn capability invocation is unsupported")
+	ErrTurnCapabilityRejected             = errors.New("agent turn capability invocation was rejected")
+	ErrTurnCapabilityUnavailable          = errors.New("agent turn capability is temporarily unavailable")
+	ErrTurnCapabilityAdmissionUnavailable = errors.New("agent turn capability admission is temporarily unavailable")
+	ErrSessionTitleTooLong                = errors.New("agent session title is too long")
+	ErrRuntimeSessionDisconnected         = errors.New("agent runtime session is disconnected")
+	ErrInteractionNotFound                = errors.New("agent interaction was not found")
+	ErrRuntimeOperationInProgress         = errors.New("agent runtime operation is already in progress")
+	ErrRuntimeOperationFailed             = errors.New("agent runtime operation failed")
+	ErrRuntimeOperationIdentityMismatch   = errors.New("agent runtime operation identity is inconsistent")
+	ErrGoalConsumerUnavailable            = errors.New("agent goal reconcile consumer is unavailable")
+	ErrGoalGenerationFenceUnavailable     = errors.New("agent goal generation fence consumer is unavailable")
+	ErrRuntimeSessionLivenessUnavailable  = errors.New("agent runtime session liveness is unavailable")
+	ErrSessionForkUnsupported             = errors.New("agent session through-turn fork is unsupported")
+	ErrSessionForkInProgress              = errors.New("agent session fork is in progress")
+	ErrSessionForkDeliveryUnknown         = errors.New("agent session fork provider delivery is unknown")
+	ErrSessionForkFailed                  = errors.New("agent session fork failed")
 )
 
 // ProviderError preserves a provider-owned failure across the runtime adapter
@@ -38,6 +42,27 @@ type ProviderError struct {
 	Message      string
 	DebugMessage string
 	Cause        error
+}
+
+// TurnCapabilityOutcomeError preserves a provider-neutral recovery outcome
+// while retaining the Host lifecycle sentinel for errors.Is callers.
+type TurnCapabilityOutcomeError struct {
+	Outcome RuntimeTurnCapabilityOutcome
+	Cause   error
+}
+
+func (e *TurnCapabilityOutcomeError) Error() string {
+	if e == nil || e.Cause == nil {
+		return "agent turn capability is unavailable"
+	}
+	return e.Cause.Error()
+}
+
+func (e *TurnCapabilityOutcomeError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
 }
 
 // NewProviderError converts an adapter's structured provider observation into

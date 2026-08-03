@@ -2,11 +2,13 @@ import type {
   AgentActivityCapabilityReference,
   AgentActivitySubmitDiagnostics,
   AgentActivitySubmitSettingsPatch,
+  AgentActivityTurnCapabilityInvocation,
   AgentPromptContentBlock
 } from "../types.ts";
 
 export interface EngineQueuedPrompt {
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   clientSubmitId?: string;
   content: readonly AgentPromptContentBlock[];
   createdAtUnixMs: number;
@@ -98,6 +100,7 @@ export interface PromptQueueSendCommand {
   type: "queue/sendPrompt";
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   commandId: string;
   clientSubmitId: string;
   correlationId?: string;

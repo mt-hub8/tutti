@@ -391,6 +391,8 @@ export const AgentGUIDetailPane = memo(function AgentGUIDetailPane({
       hasCompactableContext: viewModel.detail.hasSentUserMessage,
       compactSupported: viewModel.composer.compactSupported,
       availableSkills: viewModel.composer.availableSkills,
+      capabilityPresentations: viewModel.composer.capabilityPresentations,
+      turnCapabilityStates: viewModel.composer.turnCapabilityStates,
       selectedAgentTarget: composerSelectedProviderTarget,
       agentTargets: composerProviderTargets,
       handoffAgentTargets: composerHandoffProviderTargets,

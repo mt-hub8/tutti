@@ -7,84 +7,88 @@ import (
 )
 
 type Config struct {
-	CanonicalStore         CanonicalStore
-	SessionManagement      SessionManagementStore
-	SessionBatchManagement SessionBatchManagementStore
-	SessionDeletionGuard   SessionDeletionGuard
-	SessionPurge           SessionPurgeStore
-	SessionForks           SessionForkStore
-	SessionForkRecovery    SessionForkRecoveryStore
-	SessionForkRuntime     SessionForkRuntime
-	SessionForkContext     SessionForkContextPolicy
-	SessionForkState       SessionForkProviderStateBinder
-	Runtime                RuntimeController
-	RuntimePreparation     RuntimePreparationPort
-	SettingsPolicy         SettingsPolicy
-	Attachments            AttachmentMaterializer
-	Clock                  Clock
-	SessionLocker          SessionLocker
-	RuntimeStartGate       RuntimeStartGate
-	LifecycleObserver      LifecycleObserver
-	CommitObserver         CommitObserver
-	RuntimeOperations      RuntimeOperationStore
-	OperationEvents        RuntimeOperationEventPublisher
-	OperationOwner         string
-	Scheduler              Scheduler
-	StaleTurnSettler       StaleTurnSettler
-	WorktreeGC             WorktreeGarbageCollector
-	GoalStore              GoalStateStore
-	GoalFences             GoalGenerationFenceStore
-	GoalRuntime            GoalRuntimeController
-	GoalInbox              GoalReconcileInboxStore
-	GoalOwner              string
-	GoalClock              Clock
-	GoalAttemptTimeout     time.Duration
-	GoalRecoveryBudget     time.Duration
-	GoalMaxAttempts        int
-	GoalDispatchDeadline   time.Duration
-	GoalActor              *SessionActor
-	SessionMutationActor   *SessionActor
+	CanonicalStore          CanonicalStore
+	SessionManagement       SessionManagementStore
+	SessionBatchManagement  SessionBatchManagementStore
+	SessionDeletionGuard    SessionDeletionGuard
+	SessionPurge            SessionPurgeStore
+	SessionForks            SessionForkStore
+	SessionForkRecovery     SessionForkRecoveryStore
+	SessionForkRuntime      SessionForkRuntime
+	SessionForkContext      SessionForkContextPolicy
+	SessionForkState        SessionForkProviderStateBinder
+	Runtime                 RuntimeController
+	TurnCapabilities        RuntimeTurnCapabilityPort
+	TurnCapabilityAdmission RuntimeTurnCapabilityAdmissionPort
+	RuntimePreparation      RuntimePreparationPort
+	SettingsPolicy          SettingsPolicy
+	Attachments             AttachmentMaterializer
+	Clock                   Clock
+	SessionLocker           SessionLocker
+	RuntimeStartGate        RuntimeStartGate
+	LifecycleObserver       LifecycleObserver
+	CommitObserver          CommitObserver
+	RuntimeOperations       RuntimeOperationStore
+	OperationEvents         RuntimeOperationEventPublisher
+	OperationOwner          string
+	Scheduler               Scheduler
+	StaleTurnSettler        StaleTurnSettler
+	WorktreeGC              WorktreeGarbageCollector
+	GoalStore               GoalStateStore
+	GoalFences              GoalGenerationFenceStore
+	GoalRuntime             GoalRuntimeController
+	GoalInbox               GoalReconcileInboxStore
+	GoalOwner               string
+	GoalClock               Clock
+	GoalAttemptTimeout      time.Duration
+	GoalRecoveryBudget      time.Duration
+	GoalMaxAttempts         int
+	GoalDispatchDeadline    time.Duration
+	GoalActor               *SessionActor
+	SessionMutationActor    *SessionActor
 }
 
 type Host struct {
-	store                  CanonicalStore
-	sessionManagement      SessionManagementStore
-	sessionBatchManagement SessionBatchManagementStore
-	sessionDeletionGuard   SessionDeletionGuard
-	sessionPurge           SessionPurgeStore
-	sessionForks           SessionForkStore
-	sessionForkRecovery    SessionForkRecoveryStore
-	sessionForkRuntime     SessionForkRuntime
-	sessionForkContext     SessionForkContextPolicy
-	sessionForkState       SessionForkProviderStateBinder
-	runtime                RuntimeController
-	preparation            RuntimePreparationPort
-	settingsPolicy         SettingsPolicy
-	attachments            AttachmentMaterializer
-	clock                  Clock
-	locker                 SessionLocker
-	startupGate            RuntimeStartGate
-	observer               LifecycleObserver
-	commitObserver         CommitObserver
-	operations             RuntimeOperationStore
-	events                 RuntimeOperationEventPublisher
-	owner                  string
-	scheduler              Scheduler
-	staleTurns             StaleTurnSettler
-	worktreeGC             WorktreeGarbageCollector
-	goals                  GoalStateStore
-	goalFences             GoalGenerationFenceStore
-	goalRuntime            GoalRuntimeController
-	goalInbox              GoalReconcileInboxStore
-	goalOwner              string
-	goalClock              Clock
-	goalAttemptTimeout     time.Duration
-	goalRecoveryBudget     time.Duration
-	goalMaxAttempts        int
-	goalDispatchDeadline   time.Duration
-	goalActor              *SessionActor
-	sessionMutationActor   *SessionActor
-	goalFencesRestored     sync.Map
+	store                   CanonicalStore
+	sessionManagement       SessionManagementStore
+	sessionBatchManagement  SessionBatchManagementStore
+	sessionDeletionGuard    SessionDeletionGuard
+	sessionPurge            SessionPurgeStore
+	sessionForks            SessionForkStore
+	sessionForkRecovery     SessionForkRecoveryStore
+	sessionForkRuntime      SessionForkRuntime
+	sessionForkContext      SessionForkContextPolicy
+	sessionForkState        SessionForkProviderStateBinder
+	runtime                 RuntimeController
+	turnCapabilities        RuntimeTurnCapabilityPort
+	turnCapabilityAdmission RuntimeTurnCapabilityAdmissionPort
+	preparation             RuntimePreparationPort
+	settingsPolicy          SettingsPolicy
+	attachments             AttachmentMaterializer
+	clock                   Clock
+	locker                  SessionLocker
+	startupGate             RuntimeStartGate
+	observer                LifecycleObserver
+	commitObserver          CommitObserver
+	operations              RuntimeOperationStore
+	events                  RuntimeOperationEventPublisher
+	owner                   string
+	scheduler               Scheduler
+	staleTurns              StaleTurnSettler
+	worktreeGC              WorktreeGarbageCollector
+	goals                   GoalStateStore
+	goalFences              GoalGenerationFenceStore
+	goalRuntime             GoalRuntimeController
+	goalInbox               GoalReconcileInboxStore
+	goalOwner               string
+	goalClock               Clock
+	goalAttemptTimeout      time.Duration
+	goalRecoveryBudget      time.Duration
+	goalMaxAttempts         int
+	goalDispatchDeadline    time.Duration
+	goalActor               *SessionActor
+	sessionMutationActor    *SessionActor
+	goalFencesRestored      sync.Map
 }
 
 func New(config Config) *Host {
@@ -100,7 +104,7 @@ func New(config Config) *Host {
 		store: config.CanonicalStore, sessionManagement: config.SessionManagement, sessionBatchManagement: config.SessionBatchManagement, sessionDeletionGuard: config.SessionDeletionGuard, sessionPurge: config.SessionPurge,
 		sessionForks: config.SessionForks, sessionForkRuntime: config.SessionForkRuntime,
 		sessionForkContext: config.SessionForkContext, sessionForkState: config.SessionForkState,
-		runtime:             config.Runtime,
+		runtime: config.Runtime, turnCapabilities: config.TurnCapabilities, turnCapabilityAdmission: config.TurnCapabilityAdmission,
 		sessionForkRecovery: config.SessionForkRecovery,
 		preparation:         config.RuntimePreparation, settingsPolicy: config.SettingsPolicy, attachments: config.Attachments,
 		clock: config.Clock, locker: config.SessionLocker, startupGate: config.RuntimeStartGate,

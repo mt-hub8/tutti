@@ -132,6 +132,26 @@ func SessionForkScenarios() []SessionForkScenario {
 	}
 }
 
+// TurnCapabilityScenarios covers capability preparation for a subsequent
+// ordinary Turn. It is opt-in because only providers that implement the
+// narrow RuntimeTurnCapabilityPort can advertise this lifecycle capability.
+func TurnCapabilityScenarios() []TurnCapabilityScenario {
+	return []TurnCapabilityScenario{
+		{Name: "initial session ensures turn capability before initial exec", run: runInitialSessionTurnCapability},
+		{Name: "rejected initial turn capability does not exec", run: runRejectedInitialTurnCapabilityDoesNotExec},
+		{Name: "existing session ensures turn capability before exec", run: runExistingSessionTurnCapability},
+		{Name: "admission plan reaches ensure before exec", run: runTurnCapabilityAdmissionPlan},
+		{Name: "durable admission plan fences retry after ensure uncertainty", run: runDurableTurnCapabilityAdmissionPlan},
+		{Name: "accepted turn capability retry does not redispatch", run: runAcceptedTurnCapabilityRetry},
+		{Name: "admission rejection after claim and lock has no runtime side effects", run: runTurnCapabilityAdmissionRejection},
+		{Name: "admission unavailable releases claim for retry", run: runTurnCapabilityAdmissionUnavailable},
+		{Name: "rejected turn capability may retry", run: runRejectedTurnCapabilityRetry},
+		{Name: "unknown or applied turn capability does not replay", run: runUncertainTurnCapabilityDoesNotReplay},
+		{Name: "applied capability startup gate failure retains replay fence", run: runAppliedCapabilityStartupGateFailure},
+		{Name: "empty provider turn id retains capability replay fence", run: runCapabilityEmptyTurnID},
+	}
+}
+
 // CommitObserverScenarios verify the typed post-commit seam independently of
 // any adapter-specific event transport. They intentionally include a failing
 // observer because observer delivery is advisory after the durable commit.

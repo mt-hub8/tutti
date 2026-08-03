@@ -8,7 +8,6 @@ test("maps daemon composer options into the canonical activity contract", () => 
     behavior: {
       collapseModelOptionsToLatest: false,
       modelOptionsAuthoritative: true,
-      nativePluginCatalogAuthoritative: true,
       planModeExclusiveWithPermissionMode: false,
       prewarmDraftSession: false,
       refreshModelOptionsAfterSettings: true
@@ -24,16 +23,24 @@ test("maps daemon composer options into the canonical activity contract", () => 
     reasoningOptionsByModel: {},
     runtimeContext: {},
     commands: [],
-    skills: [],
-    capabilityCatalog: [
+    skills: [
       {
-        id: "plugin:browser@openai-bundled",
-        kind: "plugin",
+        name: "sites:sites-building",
+        trigger: "$sites:sites-building",
+        sourceKind: "plugin"
+      }
+    ],
+    capabilityCatalog: [],
+    reservedTurnCapabilityAliases: [
+      {
+        alias: "/browser",
         name: "browser",
         label: "Browser",
         status: "available",
         invocation: "promptItem",
-        semantic: "browserUse"
+        invocationScope: "turn",
+        semantic: "browserUse",
+        nextAction: "use"
       }
     ],
     provider: "codex"
@@ -44,18 +51,102 @@ test("maps daemon composer options into the canonical activity contract", () => 
   assert.equal(options.effectiveModel, "claude-haiku-4-5-20251001");
   assert.deepEqual(options.models, [{ label: "GPT-5", value: "gpt-5" }]);
   assert.equal(options.effectiveSettings?.model, "gpt-5");
-  assert.equal(options.behavior.nativePluginCatalogAuthoritative, true);
-  assert.deepEqual(options.capabilityCatalog, [
+  assert.deepEqual(options.capabilityCatalog, []);
+  assert.deepEqual(options.capabilityPresentations, [
     {
-      id: "plugin:browser@openai-bundled",
-      kind: "plugin",
       name: "browser",
       label: "Browser",
+      trigger: "/browser",
       status: "available",
       invocation: "promptItem",
-      semantic: "browserUse"
+      invocationScope: "turn",
+      semantic: "browserUse",
+      nextAction: "use"
     }
   ]);
+});
+
+test("maps explicit session consent as presentation policy rather than session state", () => {
+  const options = agentActivityComposerOptionsFromTuttidResult("codex", {
+    behavior: {
+      collapseModelOptionsToLatest: false,
+      modelOptionsAuthoritative: true,
+      planModeExclusiveWithPermissionMode: false,
+      prewarmDraftSession: false,
+      refreshModelOptionsAfterSettings: false
+    },
+    capabilityCatalog: [],
+    reservedTurnCapabilityAliases: [
+      {
+        alias: "/computer",
+        name: "computer",
+        label: "Computer",
+        status: "available",
+        invocation: "promptItem",
+        semantic: "computerUse",
+        invocationScope: "turn",
+        consentRequirement: "explicitSession"
+      }
+    ],
+    commands: [],
+    effectiveSettings: {},
+    modelConfig: { configurable: false, options: [] },
+    permissionConfig: { configurable: false, modes: [] },
+    provider: "codex",
+    reasoningConfig: { configurable: false, options: [] },
+    reasoningOptionsByModel: {},
+    runtimeContext: {},
+    skills: []
+  } as unknown as AgentProviderComposerOptionsResponse);
+
+  assert.deepEqual(options.capabilityPresentations, [
+    {
+      name: "computer",
+      label: "Computer",
+      trigger: "/computer",
+      status: "available",
+      invocation: "promptItem",
+      invocationScope: "turn",
+      semantic: "computerUse",
+      consentRequirement: "explicitSession"
+    }
+  ]);
+});
+
+test("does not turn a legacy plugin catalog row into a reserved slash alias", () => {
+  const options = agentActivityComposerOptionsFromTuttidResult("codex", {
+    behavior: {
+      collapseModelOptionsToLatest: false,
+      modelOptionsAuthoritative: true,
+      planModeExclusiveWithPermissionMode: false,
+      prewarmDraftSession: false,
+      refreshModelOptionsAfterSettings: false
+    },
+    capabilityCatalog: [
+      {
+        id: "plugin:browser@openai-bundled",
+        kind: "plugin",
+        name: "browser",
+        label: "Browser",
+        status: "available",
+        invocation: "promptItem",
+        trigger: "$browser",
+        semantic: "browserUse"
+      }
+    ],
+    commands: [],
+    effectiveSettings: {},
+    modelConfig: { configurable: false, options: [] },
+    permissionConfig: { configurable: false, modes: [] },
+    provider: "codex",
+    reasoningConfig: { configurable: false, options: [] },
+    reasoningOptionsByModel: {},
+    runtimeContext: {},
+    skills: []
+  } as unknown as AgentProviderComposerOptionsResponse);
+
+  assert.deepEqual(options.capabilityPresentations, []);
+  assert.equal(options.capabilityCatalog?.[0]?.trigger, "$browser");
 });
 
 test("keeps fallback slash commands when effects are absent", () => {

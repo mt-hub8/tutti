@@ -15,6 +15,10 @@ import type {
   AgentActivityInitialTuttiModeActivation,
   AgentActivityTuttiModeActivation
 } from "./tuttiMode.types.ts";
+import type {
+  AgentActivityTurnCapabilityInvocation,
+  AgentActivityTurnCapabilityState
+} from "./turnCapabilityInvocation.ts";
 
 export type {
   AgentActivityDurableMessage,
@@ -38,6 +42,7 @@ export type {
 export type {
   AgentActivityComposerBehavior,
   AgentActivityComposerCapabilityOption,
+  AgentActivityComposerCapabilityPresentation,
   AgentActivityComposerCommandOption,
   AgentActivityComposerOptions,
   AgentActivityComposerOptionsLoadStatus,
@@ -52,6 +57,13 @@ export type {
 } from "./composerOptions.types.ts";
 
 export type { AgentActivitySessionCapabilities } from "./sessionCapabilities.types.ts";
+
+export type {
+  AgentActivityTurnCapabilityConsent,
+  AgentActivityTurnCapabilityInvocation,
+  AgentActivityTurnCapabilitySemantic,
+  AgentActivityTurnCapabilityState
+} from "./turnCapabilityInvocation.ts";
 
 export type AgentActivitySessionKind = "root" | "child";
 
@@ -107,6 +119,11 @@ export interface AgentActivitySession {
    * its dedicated activation slice.
    */
   tuttiModeActivation: AgentActivityTuttiModeActivation | null;
+  /**
+   * Durable session capability facts. They never come from Composer options
+   * and are intentionally separate from target-level capability discovery.
+   */
+  turnCapabilityStates?: readonly AgentActivityTurnCapabilityState[];
   imported: boolean;
   visible: boolean;
   resumable: boolean;
@@ -343,6 +360,7 @@ export interface AgentActivityCreateSessionInput {
   cwd?: string | null;
   noProject?: boolean | null;
   capabilityRefs?: readonly AgentActivityCapabilityReference[] | null;
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   initialTuttiModeActivation?: AgentActivityInitialTuttiModeActivation | null;
   railPlacement?: AgentActivityRailPlacement;
   initialContent?: AgentPromptContentBlock[] | null;
@@ -364,6 +382,7 @@ export interface AgentActivitySendInput {
   workspaceId: string;
   agentSessionId: string;
   capabilityRefs?: readonly AgentActivityCapabilityReference[] | null;
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   content: AgentPromptContentBlock[];
   /** 仅展示用文本(bundle 折叠成一个 chip);content 仍带展开后的文件。 */
   displayPrompt?: string | null;

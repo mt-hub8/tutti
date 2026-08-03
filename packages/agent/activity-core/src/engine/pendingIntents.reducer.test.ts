@@ -291,6 +291,42 @@ test("control activation can carry content without expecting a Turn", () => {
   );
 });
 
+test("new activation forwards an initial turn capability in the same create command", () => {
+  const result = reduce(createInitialPendingIntentsState(), {
+    ...activation(),
+    content: [{ type: "text" as const, text: "open the release page" }],
+    runtimeContent: [{ type: "text" as const, text: "open the release page" }],
+    turnCapabilityInvocation: { semantic: "browserUse" as const }
+  });
+  const command = result.commands.find(
+    (command) => command.type === "session/activate"
+  );
+  assert.deepEqual(command, {
+    agentSessionId: "session-new",
+    agentTargetId: "target-1",
+    clientSubmitId: "submit-new",
+    commandId: "activate:activation-1",
+    correlationId: "activation-1",
+    cwd: "/workspace",
+    initialContent: [{ type: "text", text: "open the release page" }],
+    initialDisplayPrompt: "/browser",
+    railPlacement: {
+      version: 1,
+      kind: "project",
+      projectPath: "/workspace",
+      sectionKey: "project:/workspace"
+    },
+    submitDiagnostics: { submittedAtUnixMs: 1 },
+    mode: "new",
+    settings: { model: "model-1" },
+    timeoutMs: 90_000,
+    title: "New session",
+    turnCapabilityInvocation: { semantic: "browserUse" },
+    type: "session/activate",
+    workspaceId: "workspace-1"
+  });
+});
+
 test("goal control send result confirms without manufacturing a Turn", () => {
   const state = reduce(createInitialPendingIntentsState(), submit()).state;
   const validation = validateSendInputResult(
@@ -402,6 +438,53 @@ test("authoritative activation failure is retained for the view to dismiss", () 
   assert.equal(record?.status, "failed");
   assert.equal(record?.errorCode, "auth_required");
   assert.equal(record?.errorMessage, "Sign in required");
+});
+
+test("an explicit setup retry reuses the failed initial capability submission identity", () => {
+  const initial = {
+    ...activation(),
+    clientSubmitId: "submit-capability-setup",
+    content: [{ type: "text" as const, text: "open browser" }],
+    initialDisplayPrompt: "/browser open browser",
+    turnCapabilityInvocation: { semantic: "browserUse" as const }
+  };
+  let state = reduce(createInitialPendingIntentsState(), initial).state;
+  state = reduce(state, {
+    commandId: "activate:activation-1",
+    commandType: "session/activate",
+    correlationId: "activation-1",
+    errorMessage: "Install or enable this capability",
+    outcome: "failed",
+    type: "engine/commandResult"
+  }).state;
+  const failed = state.activationsByRequestId["activation-1"];
+  assert.equal(failed?.status, "failed");
+
+  const retried = reduce(state, {
+    ...initial,
+    requestId: "activation-2",
+    requestedAtUnixMs: 2
+  });
+  const command = retried.commands.find(
+    (candidate) => candidate.type === "session/activate"
+  );
+  assert.ok(command && command.type === "session/activate");
+  assert.equal(command.clientSubmitId, "submit-capability-setup");
+  assert.deepEqual(command.initialContent, [
+    { type: "text", text: "runtime instructions" }
+  ]);
+  assert.equal(command.initialDisplayPrompt, "/browser open browser");
+  assert.deepEqual(command.turnCapabilityInvocation, {
+    semantic: "browserUse"
+  });
+  assert.deepEqual(
+    retried.state.activationsByRequestId["activation-2"]?.content,
+    [{ type: "text", text: "open browser" }]
+  );
+  assert.deepEqual(
+    retried.state.activationsByRequestId["activation-2"]?.runtimeContent,
+    [{ type: "text", text: "runtime instructions" }]
+  );
 });
 
 test("invalid successful activation acknowledgement remains uncertain", () => {

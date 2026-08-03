@@ -1,5 +1,6 @@
 import type { AgentActivitySessionInput } from "../sessionNormalization.ts";
 import { normalizeAgentActivityCapabilityReferences } from "../capabilityReferences.ts";
+import { requireAgentActivityTurnCapabilityInvocation } from "../turnCapabilityInvocation.ts";
 import type { SendInputResultValidation } from "./commandResult.validation.ts";
 import type { ScopedSessionResultValidation } from "./commandResult.validation.ts";
 import {
@@ -220,6 +221,9 @@ function requestActivation(
   const capabilityRefs = normalizeAgentActivityCapabilityReferences(
     intent.capabilityRefs
   );
+  const turnCapabilityInvocation = requireAgentActivityTurnCapabilityInvocation(
+    intent.turnCapabilityInvocation
+  );
   const supersededRequestIds = Object.values(state.activationsByRequestId)
     .filter(
       (record) =>
@@ -230,6 +234,7 @@ function requestActivation(
   const recordBase = {
     agentSessionId,
     ...(capabilityRefs.length > 0 ? { capabilityRefs } : {}),
+    ...(turnCapabilityInvocation ? { turnCapabilityInvocation } : {}),
     content,
     cwd: intent.cwd?.trim() ?? "",
     ...(displayPrompt ? { displayPrompt } : {}),
@@ -248,6 +253,7 @@ function requestActivation(
       : {}),
     requestedAtUnixMs: intent.requestedAtUnixMs,
     requestId,
+    ...(runtimeContent.length > 0 ? { runtimeContent } : {}),
     ...(intent.settings ? { settings: { ...intent.settings } } : {}),
     status: "requested" as const,
     title: intent.title?.trim() || null,
@@ -293,6 +299,7 @@ function requestActivation(
         ? {
             agentSessionId,
             ...(capabilityRefs.length > 0 ? { capabilityRefs } : {}),
+            ...(turnCapabilityInvocation ? { turnCapabilityInvocation } : {}),
             agentTargetId: agentTargetId!,
             commandId: `activate:${requestId}`,
             clientSubmitId: clientSubmitId!,

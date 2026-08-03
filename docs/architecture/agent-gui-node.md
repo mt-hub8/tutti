@@ -101,6 +101,22 @@ Never infer identity from titles, timestamps, array positions, provider names, t
 
 When authoritative identity, capability, Turn, or Interaction is missing, return unsupported/loading/error. Do not choose the first provider, manufacture a Turn, treat an empty array as loaded, or hide contract drift behind a UI fallback.
 
+Provider capability catalogs are target-level presentation metadata and may be
+short-lived cached. Session-scoped capability binding or consent is never kept
+there: AgentGUI reads only the separate canonical-session projection keyed by
+`AgentSessionID`. A confirmation dialog can attach a closed-set consent value
+to one atomic create/send request, but it is not itself authorization. A
+durable coarse session authorization fact may permit a later Computer turn,
+but every client generation must independently re-check live plugin/App/MCP
+readiness. Missing state fails closed.
+
+When a selected installed official bundle is not yet live, the daemon may
+refresh that exact current App Server client before Host-owned Exec. This is
+gated on quiescence: a running Turn or unresolved approval/input/Computer
+interaction returns a retryable unavailable result and leaves the draft
+unchanged. Refresh never creates or swaps a provider client, and it is not a
+provider Turn delivery boundary; only the subsequent `turn/start` is.
+
 Compatibility paths require evidence of existing data or a release window. Keep them isolated from canonical writes.
 
 ### 1.8 Contract first
@@ -695,6 +711,10 @@ The busy-session prompt queue is ephemeral durable-intent coordination in the wo
 - user Stop pauses the queue; cancellation must not leak the next prompt
 - a visible failed queue entry continues to own its submitted content for retry;
   draft settlement must not duplicate that content back into the composer
+- a pre-Exec capability setup/enable/authorize/retry outcome keeps that same
+  immutable queue entry and `clientSubmitId`; after the user completes the
+  provider-owned action, retry revalidates the current runtime before the one
+  eventual Turn delivery
 - uncertain delivery reconciles by `clientSubmitId` and exact `turnId`; it never resends merely because the Session appears idle
 - editing a queued prompt restores its stable attachment references, then rehydrates missing image previews through `AgentActivityRuntime` with the exact workspace and Session identity; renderer-inaccessible paths never become image URLs, and late reads may update only the matching restored draft image
 - the delivery barrier serializes new-Turn sends only; a guidance head steering the running barrier Turn is exempt and may steer it repeatedly, while in-flight, uncertain-delivery, suspension, and failed-head blockers still gate guidance sends
@@ -1043,17 +1063,26 @@ host adapters consume that projection and must not rebuild `$` versus `/`,
 plugin namespaces, or prompt-item versus text-trigger behavior from provider
 names.
 
-Native Composer plugins are a separate projection from Skills and MCP
+Native Composer capabilities are a separate projection from Skills and MCP
 discovery. The daemon issues a small descriptor with a stable `semantic`,
-status, trigger, and `plugin://` path; AgentGUI uses that descriptor for
-presentation, setup actions, and structured mentions without branching on a
-provider id or reading local plugin icon paths. For Codex, `$` is the native
-plugin surface while `/` remains commands and product capabilities. A
-session-scoped runtime-preparation plan remains authoritative for whether a
-selected native plugin can actually run. The provider descriptor carries
+status, and product slash alias; AgentGUI uses that descriptor for
+presentation and setup actions without branching on a provider id or reading
+plugin identifiers, marketplace data, or local paths. A session-scoped
+runtime-preparation plan remains authoritative for whether a selected native
+capability can actually run. The provider descriptor carries
 `behavior.nativePluginCatalogAuthoritative` to say that this native catalog is
-the complete Composer plugin surface, including when it is empty; other
+the complete native-capability surface, including when it is empty; other
 providers retain the ordinary Skills and connector projection.
+
+For a new conversation, a descriptor-authorized turn capability travels with
+the same `initialContent`, display-only slash text, and client submit identity
+through the activation/create command. The Host owns the resulting initial
+Turn lifecycle: it starts the canonical runtime, validates and ensures the
+capability before the one initial execution, and preserves the submit replay
+fence on uncertain provider delivery. Desktop only maps this optional typed
+field into the one create request; it never creates a follow-up send or keeps
+pending capability state. Missing descriptors or unsupported optional Host
+contracts remain unavailable rather than falling back to injected prompt text.
 
 ### 5.3 Agent Directory and setup
 
@@ -1233,6 +1262,36 @@ preserve the optimistic CAS revision and both optional preferences; dropping
 any field turns a valid UI intent into a stale or semantically mismatched
 response. Tutti Desktop always advertises the Tutti Mode host capability;
 historical `lab.tuttiMode` preference values do not hide or disable it.
+
+For the exact built-in Codex target, this activation is also the daemon-owned
+backend selector for native capability slash commands: active selects the
+existing Tutti Browser/Computer plan, while inactive selects the Codex-native
+plan. The daemon freezes that product plan only after Host has claimed the
+submission and acquired the exact Session lock, then passes it directly to the
+single capability Ensure before Exec. The selector never probes native
+availability to change backend. Computer capability continues to require the
+session-scoped explicit consent gate; Sites has no Tutti equivalent and remains
+unavailable in that mode.
+For one admitted Turn, inactive mode contributes exactly one verified
+`plugin://` structured mention for the official bundle; active mode contributes
+exactly one App Server-returned, session-managed Tutti Browser/Computer
+structured Skill input. Those files may coexist in `CODEX_HOME`, but automatic
+Tutti handoff policy and capability env markers are removed, so no Session
+setting, prompt prefix, or prior Turn can leak one backend into the other.
+The current client/thread remains in place for both paths; a missing managed
+Tutti Skill gets one runtime-only `skills/list(forceReload=true)` recheck and
+then fails closed as setup-required rather than writing a Skill or replacing
+the runtime.
+The GUI may present descriptors and legacy commands, but it must re-evaluate
+mode when confirming a pending native consent; canonical daemon activation is
+the final authority.
+
+For that same exact target, composer options may contain a separate
+`reservedTurnCapabilityAliases` projection. It reserves a provider-authored
+slash alias independently of `skills` and `capabilityCatalog`: discovery
+errors still project the alias as unavailable, so the renderer preserves the
+draft and never falls through to a legacy command. Older daemons omit the
+projection and retain their existing composer behavior.
 
 The preference popup uses two independent 0-100 sliders. `effect` raises the
 minimum model capability and task-verification breadth. `speed` asks the
@@ -1855,3 +1914,7 @@ Any change to an owner, data flow, public contract, or recurring trap requires d
 - [Desktop Layering](../conventions/desktop-layering.md)
 - [Agent Runtime Troubleshooting](../conventions/troubleshooting/agent-runtime.md)
 - [Agent GUI Refactor History](./agent-gui-refactor-plan.md)
+
+# Capability privacy
+
+Turn capability invocation and session-consent transport fields are transient. Replay cassette publication and portable session-graph fixture export remove those structured fields while retaining sanitized binding facts such as semantic, package version, and coarse authorization. Live `loaded`/`ready` evidence never crosses a client-generation boundary.

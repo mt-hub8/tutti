@@ -1942,7 +1942,11 @@ test("normalizeTuttidError extracts structured error details", () => {
       code: "invalid_request",
       reason: "missing_workspace_id",
       developerMessage: "workspace id is required",
-      params: { field: "workspaceId" }
+      params: { field: "workspaceId" },
+      turnCapabilityOutcome: {
+        nextAction: "setup_required",
+        reasonCode: "plugin_not_ready"
+      }
     }
   });
 
@@ -1950,6 +1954,10 @@ test("normalizeTuttidError extracts structured error details", () => {
   assert.equal(normalized.code, "invalid_request");
   assert.equal(normalized.reason, "missing_workspace_id");
   assert.deepEqual(normalized.params, { field: "workspaceId" });
+  assert.deepEqual(normalized.turnCapabilityOutcome, {
+    nextAction: "setup_required",
+    reasonCode: "plugin_not_ready"
+  });
 });
 
 test("normalizeTuttidError recognizes issue manager protocol codes", () => {

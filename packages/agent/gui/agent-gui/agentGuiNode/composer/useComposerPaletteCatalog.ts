@@ -1,4 +1,5 @@
 import { useMemo, type RefObject } from "react";
+import type { AgentActivityComposerCapabilityPresentation } from "@tutti-os/agent-activity-core";
 import type { AgentSessionCommand } from "../../../shared/agentSessionTypes";
 import type { UiLanguage } from "../../../contexts/settings/domain/agentSettings";
 import type {
@@ -43,11 +44,13 @@ interface UseComposerPaletteCatalogInput {
   paletteDraftPrompt: string;
   availableCommands: readonly AgentSessionCommand[];
   availableSkills: readonly AgentGUIProviderSkillOption[];
+  capabilityPresentations?: readonly AgentActivityComposerCapabilityPresentation[];
   hasCompactableContext: boolean;
   compactSupported: boolean | null;
   composerSettings: AgentGUIComposerSettingsVM;
   capabilityMenuState?: AgentComposerCapabilityMenuState;
   capabilityControlsReadOnly: boolean;
+  tuttiModeActive?: boolean;
   labels: AgentComposerProps["labels"];
   uiLanguage: UiLanguage;
   editorHandleRef: RefObject<AgentRichTextEditorHandle | null>;
@@ -66,11 +69,13 @@ export function useComposerPaletteCatalog({
   paletteDraftPrompt,
   availableCommands,
   availableSkills,
+  capabilityPresentations = [],
   hasCompactableContext,
   compactSupported,
   composerSettings,
   capabilityMenuState,
   capabilityControlsReadOnly,
+  tuttiModeActive = false,
   labels,
   uiLanguage,
   editorHandleRef
@@ -101,19 +106,25 @@ export function useComposerPaletteCatalog({
         tuttiSupported: capabilityMenuState?.tuttiMode?.enabled === true
       }).filter(
         (command) =>
-          goalSupported || command.name.trim().toLowerCase() !== "goal"
+          (goalSupported || command.name.trim().toLowerCase() !== "goal") &&
+          (!isSlashCommandCapability(command) ||
+            !capabilityPresentations.some(
+              (capability) => capability.semantic === command.capability
+            ))
       ),
     [
       availableCommands,
+      capabilityMenuState?.tuttiMode?.enabled,
+      capabilityPresentations,
       compactSupported,
-      composerSettings.supportsPlanMode,
       composerSettings.supportsBrowser,
       composerSettings.supportsComputerUse,
-      capabilityMenuState?.tuttiMode?.enabled,
-      hasCompactableContext,
+      composerSettings.supportsPlanMode,
       goalSupported,
+      hasCompactableContext,
       provider,
-      slashCommandPolicy
+      slashCommandPolicy,
+      tuttiModeActive
     ]
   );
   const filteredCommands = useMemo(
@@ -122,6 +133,18 @@ export function useComposerPaletteCatalog({
         ? []
         : filterSlashCommands(resolvedSlashCommands, slashQuery),
     [resolvedSlashCommands, slashQuery]
+  );
+  const filteredCapabilityPresentations = useMemo(
+    () =>
+      slashQuery === null
+        ? []
+        : filterSlashCommands(
+            capabilityPresentations.filter((capability) =>
+              capability.trigger.startsWith("/")
+            ),
+            slashQuery
+          ),
+    [capabilityPresentations, slashQuery]
   );
   const filteredSkills = useMemo(
     () =>
@@ -135,11 +158,15 @@ export function useComposerPaletteCatalog({
     [availableSkills, skillQueryMatch]
   );
   const availableCapabilities = useMemo<AgentCapabilityTokenOption[]>(() => {
-    if (capabilityControlsReadOnly) {
-      return [];
-    }
+    if (capabilityControlsReadOnly) return [];
+    const descriptorSemantics = new Set(
+      capabilityPresentations.map((capability) => capability.semantic)
+    );
     const entries: AgentCapabilityTokenOption[] = [];
-    if (composerSettings.supportsBrowser) {
+    if (
+      composerSettings.supportsBrowser &&
+      !descriptorSemantics.has("browserUse")
+    ) {
       entries.push({
         capability: "browserUse",
         label: labels.browserUseCapabilityLabel,
@@ -147,7 +174,10 @@ export function useComposerPaletteCatalog({
         trigger: "/browser"
       });
     }
-    if (composerSettings.supportsComputerUse) {
+    if (
+      composerSettings.supportsComputerUse &&
+      !descriptorSemantics.has("computerUse")
+    ) {
       entries.push({
         capability: "computerUse",
         label: labels.computerUseCapabilityLabel,
@@ -158,14 +188,16 @@ export function useComposerPaletteCatalog({
     return entries;
   }, [
     capabilityControlsReadOnly,
+    capabilityPresentations,
     composerSettings.supportsBrowser,
     composerSettings.supportsComputerUse,
     labels.browserUseCapabilityLabel,
-    labels.computerUseCapabilityLabel
+    labels.computerUseCapabilityLabel,
+    tuttiModeActive
   ]);
   const slashPaletteEntries = useMemo<AgentSlashPaletteEntry[]>(() => {
-    const commandEntries: AgentSlashPaletteEntry[] =
-      filteredCommands.flatMap<AgentSlashPaletteEntry>((command) => {
+    const commandEntries = filteredCommands.flatMap<AgentSlashPaletteEntry>(
+      (command) => {
         if (isSlashCommandCapability(command)) {
           const browserConnectionMode =
             capabilityMenuState?.browserUse?.connectionMode ?? null;
@@ -195,46 +227,60 @@ export function useComposerPaletteCatalog({
                   : browserConnectionMode === "isolated"
                     ? labels.browserUseCapabilityDescriptionIsolated
                     : labels.browserUseCapabilityDescription;
-          const capSettingsLabel =
-            command.capability === "tutti"
-              ? labels.tuttiModeLabel
-              : command.capability === "computerUse"
-                ? labels.computerUseCapabilitySettingsLabel
-                : labels.browserUseCapabilitySettingsLabel;
-          const capabilityEntry: AgentSlashPaletteEntry = {
-            type: "capability",
-            key: `capability:${command.capability}`,
-            label: capLabel,
-            description: capDescription,
-            settingsAriaLabel: capSettingsLabel,
-            settingsLabel: labels.capabilityInlineSettingsLabel,
-            disabled: capabilityControlsReadOnly,
-            selectAction:
-              command.capability === "computerUse" &&
-              (computerUseInstalled === false ||
-                (computerUseInstalled === true &&
-                  (computerUseAuthorization === "needs-authorization" ||
-                    computerUseAuthorization === "unknown")))
-                ? "settings"
-                : "capability",
-            capability: command
-          };
-          return [capabilityEntry];
+          return [
+            {
+              type: "capability",
+              key: `capability:${command.capability}`,
+              label: capLabel,
+              description: capDescription,
+              settingsAriaLabel:
+                command.capability === "computerUse"
+                  ? labels.computerUseCapabilitySettingsLabel
+                  : labels.browserUseCapabilitySettingsLabel,
+              settingsLabel: labels.capabilityInlineSettingsLabel,
+              disabled: capabilityControlsReadOnly,
+              selectAction:
+                command.capability === "computerUse" &&
+                (computerUseInstalled === false ||
+                  (computerUseInstalled === true &&
+                    (computerUseAuthorization === "needs-authorization" ||
+                      computerUseAuthorization === "unknown")))
+                  ? "settings"
+                  : "capability",
+              capability: command
+            }
+          ];
         }
         const commandDescription = slashCommandDescriptionForDisplay(
           command,
           labels
         );
-        const commandEntry: AgentSlashPaletteEntry = {
-          type: "command",
-          key: `command:${command.name}`,
-          label: labelForSlashCommand(command),
-          ...slashCommandLabelForDisplay(command, labels, uiLanguage),
-          ...(commandDescription ? { description: commandDescription } : {}),
-          command
-        };
-        return [commandEntry];
-      });
+        return [
+          {
+            type: "command",
+            key: `command:${command.name}`,
+            label: labelForSlashCommand(command),
+            ...slashCommandLabelForDisplay(command, labels, uiLanguage),
+            ...(commandDescription ? { description: commandDescription } : {}),
+            command
+          }
+        ];
+      }
+    );
+    const capabilityEntries: AgentSlashPaletteEntry[] =
+      filteredCapabilityPresentations.map((capability) => ({
+        type: "providerCapability",
+        key: `capability:${capability.semantic}`,
+        label: capability.label,
+        ...(providerCapabilityDescription(capability, labels)
+          ? { description: providerCapabilityDescription(capability, labels) }
+          : {}),
+        disabled:
+          capability.status !== "available" ||
+          capability.invocation !== "promptItem" ||
+          capability.invocationScope !== "turn",
+        capability
+      }));
     const skillEntries: AgentSlashPaletteEntry[] = filteredSkills.map(
       (skill) => {
         if (skill.kind === "plugin" && skill.semantic !== undefined) {
@@ -263,48 +309,18 @@ export function useComposerPaletteCatalog({
         };
       }
     );
-    return [...commandEntries, ...skillEntries];
+    return [...commandEntries, ...capabilityEntries, ...skillEntries];
   }, [
+    capabilityControlsReadOnly,
     capabilityMenuState?.browserUse?.connectionMode,
     capabilityMenuState?.computerUse?.authorization,
     capabilityMenuState?.computerUse?.installed,
-    capabilityControlsReadOnly,
+    filteredCapabilityPresentations,
     filteredCommands,
     filteredSkills,
-    labels.browserUseCapabilityDescription,
-    labels.browserUseCapabilityDescriptionAutoConnect,
-    labels.browserUseCapabilityDescriptionIsolated,
-    labels.browserUseCapabilityLabel,
-    labels.capabilityInlineSettingsLabel,
-    labels.browserUseCapabilitySettingsLabel,
-    labels.computerUseCapabilityDescription,
-    labels.computerUseCapabilityAuthorizationRequiredDescription,
-    labels.computerUseCapabilityAuthorizationUnknownDescription,
-    labels.computerUseCapabilitySetupRequiredDescription,
-    labels.computerUseCapabilityLabel,
-    labels.computerUseCapabilitySettingsLabel,
-    labels.tuttiModeDescription,
-    labels.tuttiModeLabel,
-    labels.slashCommandCompactLabel,
-    labels.slashCommandContextLabel,
-    labels.slashCommandFastLabel,
-    labels.slashCommandGoalLabel,
-    labels.slashCommandInitLabel,
-    labels.slashCommandPlanLabel,
-    labels.slashCommandReviewLabel,
-    labels.slashCommandStatusLabel,
-    labels.slashCommandUsageLabel,
-    labels.slashCommandCompactDescription,
-    labels.slashCommandContextDescription,
-    labels.slashCommandFastDescription,
-    labels.slashCommandGoalDescription,
-    labels.slashCommandInitDescription,
-    labels.slashCommandPlanDescription,
-    labels.slashCommandReviewDescription,
-    labels.slashCommandStatusDescription,
-    labels.slashCommandUsageDescription,
-    uiLanguage,
-    skillQueryMatch?.prefix
+    labels,
+    skillQueryMatch?.prefix,
+    uiLanguage
   ]);
   return {
     availableCapabilities,
@@ -329,5 +345,27 @@ function nativePluginLabel(
       return labels.computerUseCapabilityLabel;
     default:
       return plugin.name;
+  }
+}
+
+function providerCapabilityDescription(
+  capability: AgentActivityComposerCapabilityPresentation,
+  labels: AgentComposerProps["labels"]
+): string | undefined {
+  switch (capability.status) {
+    case "setupRequired":
+    case "notInstalled":
+      return labels.providerCapabilitySetupRequiredDescription;
+    case "disabled":
+      return labels.providerCapabilityDisabledDescription;
+    case "disabledByAdmin":
+      return labels.providerCapabilityDisabledByAdminDescription;
+    case "unsupported":
+      return labels.providerCapabilityUnsupportedDescription;
+    case "unknown":
+    case "error":
+      return labels.providerCapabilityAvailabilityUnknownDescription;
+    default:
+      return capability.description;
   }
 }

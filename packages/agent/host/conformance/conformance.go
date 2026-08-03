@@ -202,6 +202,47 @@ type SessionForkScenario struct {
 	run  func(context.Context, SessionForkDriver) error
 }
 
+// TurnCapabilityMetrics is intentionally separate from Metrics so existing
+// Host consumers do not gain a pretend provider-capability implementation.
+type TurnCapabilityMetrics struct {
+	StartCalls     int
+	ResumeCalls    int
+	CloseCalls     int
+	AdmissionCalls int
+	EnsureCalls    int
+	ExecCalls      int
+	Sequence       []string
+	EnsurePlanKeys []string
+}
+
+// TurnCapabilityFixture supplies only the provider observations needed by the
+// opt-in replay scenarios. It is intentionally capability-generic.
+type TurnCapabilityFixture struct {
+	InitialSession       bool
+	EnsureResults        []agenthost.RuntimeTurnCapabilityResult
+	FailFinalValidation  bool
+	AdmissionRejected    bool
+	AdmissionUnavailable bool
+	AdmissionResults     []agenthost.RuntimeTurnCapabilityAdmissionDisposition
+	AdmissionPlan        agenthost.RuntimeTurnCapabilityPlan
+	FailStartupGate      bool
+	EmptyExecTurnID      bool
+}
+
+// TurnCapabilityDriver is the opt-in Host conformance surface for semantic
+// capability preparation on an existing session.
+type TurnCapabilityDriver interface {
+	ResetTurnCapability(context.Context, TurnCapabilityFixture) error
+	CreateTurnCapability(context.Context, agenthost.CreateSessionInput) (SendObservation, error)
+	SendTurnCapability(context.Context, agenthost.SendInput) (SendObservation, error)
+	TurnCapabilityMetrics() TurnCapabilityMetrics
+}
+
+type TurnCapabilityScenario struct {
+	Name string
+	run  func(context.Context, TurnCapabilityDriver) error
+}
+
 func Run(ctx context.Context, driver Driver, scenario Scenario) error {
 	if driver == nil {
 		return fmt.Errorf("agent host conformance driver is required")
@@ -222,6 +263,20 @@ func RunSessionFork(
 	}
 	if scenario.run == nil {
 		return fmt.Errorf("agent host session fork conformance scenario %q has no runner", scenario.Name)
+	}
+	return scenario.run(ctx, driver)
+}
+
+func RunTurnCapability(
+	ctx context.Context,
+	driver TurnCapabilityDriver,
+	scenario TurnCapabilityScenario,
+) error {
+	if driver == nil {
+		return fmt.Errorf("agent host turn capability conformance driver is required")
+	}
+	if scenario.run == nil {
+		return fmt.Errorf("agent host turn capability conformance scenario %q has no runner", scenario.Name)
 	}
 	return scenario.run(ctx, driver)
 }

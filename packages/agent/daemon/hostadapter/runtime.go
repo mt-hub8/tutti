@@ -52,6 +52,7 @@ var (
 	_ host.GoalRuntimeReconciler             = (*RuntimeController)(nil)
 	_ host.GoalRuntimeRecoveryPolicyResolver = (*RuntimeController)(nil)
 	_ host.GoalRuntimeGenerationFencer       = (*RuntimeController)(nil)
+	_ host.RuntimeTurnCapabilityPort         = (*RuntimeController)(nil)
 )
 
 type sessionForkRuntimeBackend interface {

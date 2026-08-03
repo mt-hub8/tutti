@@ -2,9 +2,10 @@ package runtimeprep
 
 import "strings"
 
-// ApplyNativeCapabilityExclusivity disables Tutti browser/computer delivery when
-// the session plan selected Codex native for that capability. Sites has no Tutti
-// counterpart. Callers must rebuild provider instructions/skills after this.
+// ApplyNativeCapabilityExclusivity removes automatic Tutti browser/computer
+// delivery from a Codex runtime. The managed skill files deliberately remain:
+// a later immutable Turn plan may select Tutti and invoke one explicitly.
+// Sites has no Tutti counterpart.
 func ApplyNativeCapabilityExclusivity(input *PrepareInput, plan NativeCapabilityPlan) {
 	if input == nil {
 		return
@@ -18,30 +19,13 @@ func ApplyNativeCapabilityExclusivity(input *PrepareInput, plan NativeCapability
 	if input.resolved == nil {
 		return
 	}
-	filteredSkills := make([]SkillSpec, 0, len(input.resolved.Skills))
-	for _, skill := range input.resolved.Skills {
-		id := strings.TrimSpace(skill.ID)
-		if plan.Backend(CodexNativeCapabilityBrowser) == CapabilityBackendCodexNative &&
-			(id == "tutti/browser-use" || skill.Name == browserUseSkillName) {
-			continue
-		}
-		if plan.Backend(CodexNativeCapabilityComputer) == CapabilityBackendCodexNative &&
-			(id == "tutti/computer-use" || skill.Name == computerUseSkillName) {
-			continue
-		}
-		filteredSkills = append(filteredSkills, skill)
-	}
-	input.resolved.Skills = filteredSkills
-
 	filteredSections := make([]PolicySection, 0, len(input.resolved.PolicySections))
 	for _, section := range input.resolved.PolicySections {
 		key := strings.TrimSpace(section.Key)
-		if plan.Backend(CodexNativeCapabilityBrowser) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(key, "browser-use/") {
+		if strings.HasPrefix(key, "browser-use/") {
 			continue
 		}
-		if plan.Backend(CodexNativeCapabilityComputer) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(key, "computer-use/") {
+		if strings.HasPrefix(key, "computer-use/") {
 			continue
 		}
 		filteredSections = append(filteredSections, section)
@@ -50,12 +34,10 @@ func ApplyNativeCapabilityExclusivity(input *PrepareInput, plan NativeCapability
 
 	filteredEnv := make([]string, 0, len(input.resolved.EnvOverlay))
 	for _, entry := range input.resolved.EnvOverlay {
-		if plan.Backend(CodexNativeCapabilityBrowser) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(entry, browserUseEnabledSessionEnv+"=") {
+		if strings.HasPrefix(entry, browserUseEnabledSessionEnv+"=") {
 			continue
 		}
-		if plan.Backend(CodexNativeCapabilityComputer) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(entry, computerUseEnabledSessionEnv+"=") {
+		if strings.HasPrefix(entry, computerUseEnabledSessionEnv+"=") {
 			continue
 		}
 		filteredEnv = append(filteredEnv, entry)
@@ -63,20 +45,19 @@ func ApplyNativeCapabilityExclusivity(input *PrepareInput, plan NativeCapability
 	input.resolved.EnvOverlay = filteredEnv
 }
 
-// FilterEnvForNativeCapabilityPlan removes Tutti capability session markers that
-// conflict with an active Codex native backend.
+// FilterEnvForNativeCapabilityPlan removes automatic Tutti capability markers
+// from Codex runtime process environments. Slash routing selects its backend
+// through a structured Turn input, never through an inherited env marker.
 func FilterEnvForNativeCapabilityPlan(env []string, plan *NativeCapabilityPlan) []string {
 	if plan == nil || len(env) == 0 {
 		return env
 	}
 	result := make([]string, 0, len(env))
 	for _, entry := range env {
-		if plan.Backend(CodexNativeCapabilityBrowser) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(entry, browserUseEnabledSessionEnv+"=") {
+		if strings.HasPrefix(entry, browserUseEnabledSessionEnv+"=") {
 			continue
 		}
-		if plan.Backend(CodexNativeCapabilityComputer) == CapabilityBackendCodexNative &&
-			strings.HasPrefix(entry, computerUseEnabledSessionEnv+"=") {
+		if strings.HasPrefix(entry, computerUseEnabledSessionEnv+"=") {
 			continue
 		}
 		result = append(result, entry)

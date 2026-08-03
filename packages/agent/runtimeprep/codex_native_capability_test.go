@@ -76,6 +76,18 @@ func TestResolveNativeCapabilityPlanExplicitTutti(t *testing.T) {
 	}
 }
 
+func TestResolveNativeCapabilityPlanExplicitTuttiSitesIsUnavailable(t *testing.T) {
+	t.Parallel()
+	plan := ResolveNativeCapabilityPlan("/tmp/codex-home", []CodexNativeCapabilityEvidence{{
+		PluginID: CodexNativePluginSites, Capability: CodexNativeCapabilitySites,
+		Installed: true, Enabled: true,
+	}}, NativeCapabilityResolveInput{SitesPreference: CapabilityBackendPreferenceTutti})
+	sites, ok := plan.Entry(CodexNativeCapabilitySites)
+	if !ok || sites.Backend != CapabilityBackendUnavailable || !sites.Explicit {
+		t.Fatalf("explicit Tutti Sites = %#v", sites)
+	}
+}
+
 func TestInspectCodexNativeCapabilityEvidenceFromSessionHome(t *testing.T) {
 	t.Parallel()
 

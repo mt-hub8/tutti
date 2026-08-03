@@ -2,6 +2,7 @@ package apierrors
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	runtimeprep "github.com/tutti-os/tutti/packages/agent/runtimeprep"
@@ -58,6 +59,22 @@ func TestClassifyTerminalRuntimeOperationFailureIsNotRetryable(t *testing.T) {
 	classified := Classify(agentservice.ErrRuntimeOperationFailed)
 	if classified.Reason != ReasonAgentRuntimeOperationFailed || classified.Retryable {
 		t.Fatalf("classified = %#v, want stable terminal failure reason", classified)
+	}
+}
+
+func TestClassifyTurnCapabilityRecoveryPreservesOnlyGenericOutcome(t *testing.T) {
+	err := &agentservice.TurnCapabilityRecoveryError{
+		NextAction: "setup_required",
+		ReasonCode: "plugin_not_ready",
+		Cause:      errors.New("plugin:///private/path is unavailable"),
+	}
+	classified := Classify(err)
+	if classified.Code != tuttigenerated.InvalidRequest || classified.Reason != "agent.turn_capability_plugin_not_ready" || classified.Params["nextAction"] != "setup_required" || classified.Params["reasonCode"] != "plugin_not_ready" {
+		t.Fatalf("classified = %#v", classified)
+	}
+	if classified.DeveloperMessage != "agent turn capability requires setup_required" ||
+		strings.Contains(classified.DeveloperMessage, "plugin://") {
+		t.Fatalf("developer message leaked provider detail: %#v", classified)
 	}
 }
 

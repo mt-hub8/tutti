@@ -276,6 +276,9 @@ export function useAgentGUINewConversationActivation(
         ...(submitOptions?.capabilityRefs?.length
           ? { capabilityRefs: submitOptions.capabilityRefs }
           : {}),
+        ...(submitOptions?.turnCapabilityInvocation
+          ? { turnCapabilityInvocation: submitOptions.turnCapabilityInvocation }
+          : {}),
         clientSubmitId: submitTrace.clientSubmitId,
         cwd: selectedProjectPath ?? "",
         railPlacement,

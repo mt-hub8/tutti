@@ -38,6 +38,9 @@ func (s *Store) Publish(
 	if err := validateRecordedActivityEvents(layout.StorageKey, activityEventCount); err != nil {
 		return replay.Artifact{}, err
 	}
+	if err := sanitizeRecordedActivityEvents(layout.StorageKey); err != nil {
+		return replay.Artifact{}, err
+	}
 	if err := writeReplayCheckpoints(layout.StorageKey, activityEventCount); err != nil {
 		return replay.Artifact{}, err
 	}
@@ -91,6 +94,18 @@ func (s *Store) Publish(
 		CreatedAtUnixMS:    manifest.CreatedAtUnixMS,
 	}
 	return replay.Artifact{Cassette: cassette, Layout: destination}, nil
+}
+
+func sanitizeRecordedActivityEvents(directory string) error {
+	path := filepath.Join(directory, replay.ActivityEventsFile)
+	events, err := readJSONLines[replay.ActivityEvent](path, "activity event")
+	if err != nil {
+		return err
+	}
+	for index := range events {
+		events[index].Payload = replay.SanitizeCapabilityTransientPayload(events[index].Payload)
+	}
+	return writeJSONLinesAtomic(path, events)
 }
 
 func writeReplayCheckpoints(directory string, activityEventCount uint64) error {

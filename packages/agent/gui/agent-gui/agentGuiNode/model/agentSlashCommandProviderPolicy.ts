@@ -7,11 +7,9 @@ import type {
 import {
   agentCapabilityUseDisplayPrompt,
   buildAgentCapabilityUseSubmitPrompt,
-  parseAgentCapabilityUseInvocation,
-  resolveAgentCapabilityUseNativePlugin
+  parseAgentCapabilityUseInvocation
 } from "./agentCapabilityUseSubmit";
 import type { AgentCapabilityUse } from "./agentCapabilityUseSubmit";
-import type { AgentGUIProviderSkillOption } from "./agentGuiNodeTypes";
 import {
   draftForSlashCommand,
   mergeSlashCommands,
@@ -87,7 +85,6 @@ interface ResolveSlashCommandSubmitEffectInput {
   policy?: AgentSlashCommandPolicy | null;
   commands: readonly AgentSlashCommand[];
   draft: string;
-  skills?: readonly AgentGUIProviderSkillOption[];
 }
 
 interface ProviderSlashPolicy {
@@ -288,8 +285,7 @@ export function resolveSlashCommandSubmitEffect({
   provider: _provider,
   policy,
   commands,
-  draft,
-  skills = []
+  draft
 }: ResolveSlashCommandSubmitEffectInput): SlashCommandSelectionEffect | null {
   for (const [capability, supported] of [
     ["browserUse", browserSupported],
@@ -299,8 +295,7 @@ export function resolveSlashCommandSubmitEffect({
       capability,
       commands,
       draft,
-      supported,
-      skills
+      supported
     });
     if (capabilityEffect) {
       return capabilityEffect;
@@ -354,14 +349,12 @@ function resolveCapabilitySubmitEffect({
   capability,
   commands,
   draft,
-  supported,
-  skills
+  supported
 }: {
   capability: AgentCapabilityUse;
   commands: readonly AgentSlashCommand[];
   draft: string;
   supported: boolean;
-  skills: readonly AgentGUIProviderSkillOption[];
 }): SlashCommandSelectionEffect | null {
   if (!supported) {
     return null;
@@ -376,19 +369,11 @@ function resolveCapabilitySubmitEffect({
   if (!command || !isCapabilityCommand(command, capability)) {
     return null;
   }
-  const nativePlugin = resolveAgentCapabilityUseNativePlugin(
-    capability,
-    skills
-  );
   return {
     kind: "submitPrompt",
-    prompt: buildAgentCapabilityUseSubmitPrompt(
-      capability,
-      invocation.args,
-      nativePlugin
-    ),
+    prompt: buildAgentCapabilityUseSubmitPrompt(capability, invocation.args),
     displayPrompt: agentCapabilityUseDisplayPrompt(capability, invocation.args),
-    requiredSettingsPatch: nativePlugin ? undefined : { [capability]: true }
+    requiredSettingsPatch: { [capability]: true }
   };
 }
 

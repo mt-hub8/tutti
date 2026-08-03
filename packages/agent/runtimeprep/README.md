@@ -81,6 +81,36 @@ The plan is attached to `PreparedRuntime.NativeCapabilityPlan` for Host and
 adapter consumers; mutual exclusion of Tutti skill/policy injection is applied
 by later exclusivity wiring.
 
+## Codex Turn Capability Binding
+
+`EnsureCodexTurnCapability` is the provider-local preparation seam used only
+when a later setup/recovery flow must materially change a Codex session. It
+accepts a capability semantic, the session-scoped `CODEX_HOME`, and sanitized
+binding facts. It returns a structured `plugin://` mention for the complete
+official bundle, not an individual bundled Skill.
+
+For an already running Codex session, the daemon first uses its current App
+Server client for read-only readiness: exact `plugin/list` evidence plus the
+selected runtime's `mcpServerStatus/list` or `app/list` evidence. A ready
+result returns `already_bound` and the one plugin mention on that same client
+and thread; it does not write configuration, call `thread/resume`, replace the
+client, or select a bundled Skill. The per-client cache is discarded with that
+client generation. A package directory version is only an installation-local
+cache discriminator, never a content digest. `loaded` and `ready` from old
+runtime snapshots are not readiness authority. The only durable capability
+fact is coarse Computer session authorization, never the transient
+`explicitSession` value itself. This seam never invents consent.
+
+If an official bundle is installed and enabled but its selected MCP or Sites
+App is not live, the Codex adapter may refresh only that current App Server
+client: MCP `config/mcpServer/reload`, runtime-only
+`skills/list(forceReload=true)`, and an App re-query for Sites. It re-checks
+the selected live evidence before returning the mention. An active Turn or any
+pending approval/input/Computer interaction makes refresh retryable and causes
+no RPC mutation. Unsupported versions, administrator-disabled plugins, and
+partial reload results fail closed; this flow never calls experimental feature
+enablement or creates a replacement runtime.
+
 ## Codex Native Computer Use Prepare
 
 `prepareCodexNativeComputerUse` reads the installed plugin `.mcp.json`, resolves
@@ -89,7 +119,8 @@ the session `CODEX_HOME`, and writes a session-scoped
 `[mcp_servers.computer-use]` block. It never edits `~/.codex/config.toml`.
 
 Enabling a previously disabled Computer Use MCP requires
-`AuthorizeCodexNativeComputerUse` or an explicit native backend preference.
+`AuthorizeCodexNativeComputerUse`, which must be derived from explicit
+session-scoped confirmation; a native backend preference is not authorization.
 Repairing an already-enabled relative command to a verified absolute path does
 not. `VerifyCodexNativeComputerMCPStatus` interprets post-start
 `mcpServerStatus/list` evidence and fails closed when the server is missing,

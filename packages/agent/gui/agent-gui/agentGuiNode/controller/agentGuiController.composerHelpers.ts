@@ -290,6 +290,14 @@ export function providerSkillsFromComposerOptions(
   );
 }
 
+export function providerCapabilityPresentationsFromComposerOptions(
+  options: AgentActivityComposerOptions | null
+) {
+  return (options?.capabilityPresentations ?? []).map((capability) => ({
+    ...capability
+  }));
+}
+
 export function areProviderSkillOptionsEqual(
   left: AgentGUIProviderSkillOption,
   right: AgentGUIProviderSkillOption

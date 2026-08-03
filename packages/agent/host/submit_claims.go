@@ -26,6 +26,26 @@ func submissionMetadata(metadata map[string]any, typedClientSubmitID string) map
 	return result
 }
 
+// canonicalTurnIDForSubmitClaim restores the durable submit identity before a
+// request-local TurnID is allocated. A duplicate ClientSubmitID must therefore
+// never manufacture a conflicting turn identity before Host can reconcile its
+// existing replay fence.
+func (h *Host) canonicalTurnIDForSubmitClaim(ctx context.Context, ref SessionRef, metadata map[string]any, requestedTurnID string) (string, error) {
+	requestedTurnID = strings.TrimSpace(requestedTurnID)
+	clientID := legacyClientSubmitID(metadata)
+	if requestedTurnID != "" || clientID == "" || h == nil || h.store == nil {
+		return requestedTurnID, nil
+	}
+	claim, found, err := h.store.GetSubmitClaim(ctx, ref.WorkspaceID, ref.AgentSessionID, clientID)
+	if err != nil || !found {
+		return requestedTurnID, err
+	}
+	if canonical := strings.TrimSpace(claim.CanonicalTurnID); canonical != "" {
+		return canonical, nil
+	}
+	return requestedTurnID, nil
+}
+
 func (h *Host) prepareSubmitClaim(ctx context.Context, ref SessionRef, metadata map[string]any, canonicalTurnID string) (storesqlite.SubmitClaim, bool, error) {
 	clientID := legacyClientSubmitID(metadata)
 	if h == nil || h.store == nil || clientID == "" {
@@ -42,6 +62,9 @@ func (h *Host) prepareSubmitClaim(ctx context.Context, ref SessionRef, metadata 
 	if err != nil || !found {
 		return claim, false, err
 	}
+	// A retry may arrive without a caller-provided TurnID. The existing submit
+	// claim, not a newly generated request-local ID, is the canonical fence.
+	// Only a disagreement between durable claim and durable turn is a conflict.
 	if strings.TrimSpace(turnID) != strings.TrimSpace(claim.CanonicalTurnID) {
 		return claim, false, storesqlite.ErrSubmitClaimTurnConflict
 	}

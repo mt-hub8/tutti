@@ -354,12 +354,23 @@ export type ApiErrorDetails = {
     [key: string]: unknown;
   };
   retryable?: boolean;
+  turnCapabilityOutcome?: AgentTurnCapabilityRecoveryOutcome;
   developerMessage?: string;
   correlationId?: string;
 };
 
 export type ApiErrorResponse = {
   error: ApiErrorDetails;
+};
+
+export type AgentTurnCapabilityRecoveryOutcome = {
+  nextAction:
+    | "setup_required"
+    | "enable_required"
+    | "authorize_required"
+    | "retry"
+    | "blocked";
+  reasonCode: string;
 };
 
 export type WorkspaceSummary = {
@@ -1773,6 +1784,10 @@ export type AgentProviderComposerOptionsResponse = {
   capabilities?: WorkspaceAgentCapabilities;
   skills: Array<AgentProviderSkillOption>;
   capabilityCatalog: Array<AgentProviderCapabilityOption>;
+  /**
+   * Provider-reserved current-turn slash capability aliases. This is a presentation-only, fail-closed surface and is independent from skills and capabilityCatalog.
+   */
+  reservedTurnCapabilityAliases?: Array<AgentReservedTurnCapabilityAlias>;
   behavior: AgentProviderComposerBehavior;
   slashCommandPolicy?: AgentSlashCommandPolicy;
 };
@@ -1844,20 +1859,72 @@ export type AgentProviderCapabilityOption = {
   status:
     | "available"
     | "disabled"
+    | "disabledByAdmin"
     | "authRequired"
     | "setupRequired"
-    | "unsupported";
+    | "notInstalled"
+    | "unsupported"
+    | "unknown"
+    | "error";
   source?: string;
   pluginName?: string;
   serverName?: string;
   toolName?: string;
   trigger?: string;
   path?: string;
-  /**
-   * Stable provider-native presentation and interaction key. It does not identify an executable, filesystem path, or provider wire implementation.
-   */
-  semantic?: "sites" | "browserUse" | "computerUse";
+  semantic?: AgentNativeCapabilitySemantic;
   invocation: "promptItem" | "textTrigger" | "none";
+  /**
+   * Lifecycle scope for an explicit capability invocation. Omitted values are compatible with createOnly.
+   */
+  invocationScope?: "createOnly" | "turn";
+  consentRequirement?: AgentTurnCapabilityConsent;
+};
+
+export type AgentReservedTurnCapabilityAlias = {
+  alias: string;
+  semantic: AgentNativeCapabilitySemantic;
+  name: string;
+  label: string;
+  description?: string;
+  status:
+    | "available"
+    | "disabled"
+    | "disabledByAdmin"
+    | "authRequired"
+    | "setupRequired"
+    | "notInstalled"
+    | "unsupported"
+    | "unknown"
+    | "error";
+  reason?: string;
+  nextAction?: "use" | "setup" | "retry" | "blocked";
+  invocation: "promptItem" | "textTrigger" | "none";
+  invocationScope: "createOnly" | "turn";
+  consentRequirement?: AgentTurnCapabilityConsent;
+};
+
+/**
+ * Stable native capability semantic. It does not identify an executable, filesystem path, plugin, marketplace, or provider wire implementation.
+ */
+export type AgentNativeCapabilitySemantic =
+  | "sites"
+  | "browserUse"
+  | "computerUse";
+
+export type AgentTurnCapabilityInvocation = {
+  semantic: AgentNativeCapabilitySemantic;
+  consent?: AgentTurnCapabilityConsent;
+};
+
+/**
+ * Explicit user-confirmed, session-scoped consent evidence for a capability invocation. Omitted values grant no consent.
+ */
+export type AgentTurnCapabilityConsent = "explicitSession";
+
+export type AgentSessionTurnCapabilityState = {
+  semantic: AgentNativeCapabilitySemantic;
+  state: "bound";
 };
 
 export type AgentProviderAvailabilityStatus =
@@ -2333,6 +2400,10 @@ export type WorkspaceAgentSession = {
    * Independent, session-scoped Tutti mode activation projection. Null until the first activation revision exists; capability references are audit records and never determine this state.
    */
   tuttiModeActivation: TuttiModeActivation | null;
+  /**
+   * Durable session-scoped capability binding facts. This is separate from target capability catalogs and contains no provider config.
+   */
+  turnCapabilityStates?: Array<AgentSessionTurnCapabilityState>;
   /**
    * Protocol v2. True when the session was imported from external provider history. Explicit field extracted from runtimeContext.
    */
@@ -2902,6 +2973,7 @@ export type CreateWorkspaceAgentSessionRequest = {
    * Optional display-only text for the first turn (e.g. a folder bundle shown as one chip while initialContent carries the expanded files).
    */
   initialDisplayPrompt?: string | null;
+  turnCapabilityInvocation?: AgentTurnCapabilityInvocation;
   title?: string | null;
   cwd?: string | null;
   permissionModeId?: string | null;
@@ -3078,6 +3150,7 @@ export type SendWorkspaceAgentSessionInputRequest = {
    * When true, send this input as guidance to the currently active turn instead of starting a new turn.
    */
   guidance?: boolean;
+  turnCapabilityInvocation?: AgentTurnCapabilityInvocation;
 };
 
 export type AgentSubmitDiagnostics = {

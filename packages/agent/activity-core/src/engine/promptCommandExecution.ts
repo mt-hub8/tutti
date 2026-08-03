@@ -3,6 +3,7 @@ import type {
   AgentActivitySessionSettings
 } from "../types.ts";
 import type { PromptQueueSendCommand } from "./promptQueue.types.ts";
+import { clonePromptTurnCapabilityInvocation } from "./promptQueue.prompt.ts";
 
 /** Internal precondition port used by the Engine prompt effect projection. */
 export interface AgentActivityPromptCommandPort<TResult = unknown> {
@@ -43,6 +44,7 @@ export async function executeAgentActivityPromptCommand<TResult>(
     ...(command.capabilityRefs?.length
       ? { capabilityRefs: command.capabilityRefs }
       : {}),
+    ...clonePromptTurnCapabilityInvocation(command.turnCapabilityInvocation),
     clientSubmitId: command.clientSubmitId,
     content: [...command.content],
     displayPrompt: command.displayPrompt ?? null,

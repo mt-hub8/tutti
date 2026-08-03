@@ -493,6 +493,16 @@ export function useAgentGUIDetailModel(input: Input) {
         labels.computerUseCapabilitySettingsLabel,
       computerUseCapabilitySettingsDescription:
         labels.computerUseCapabilitySettingsDescription,
+      providerCapabilitySetupRequiredDescription:
+        labels.providerCapabilitySetupRequiredDescription,
+      providerCapabilityDisabledDescription:
+        labels.providerCapabilityDisabledDescription,
+      providerCapabilityDisabledByAdminDescription:
+        labels.providerCapabilityDisabledByAdminDescription,
+      providerCapabilityUnsupportedDescription:
+        labels.providerCapabilityUnsupportedDescription,
+      providerCapabilityAvailabilityUnknownDescription:
+        labels.providerCapabilityAvailabilityUnknownDescription,
       slashStatusTitle: labels.slashStatusTitle,
       slashStatusSession: labels.slashStatusSession,
       slashStatusBaseUrl: labels.slashStatusBaseUrl,
@@ -646,6 +656,11 @@ export function useAgentGUIDetailModel(input: Input) {
       labels.computerUseCapabilityLabel,
       labels.computerUseCapabilitySettingsDescription,
       labels.computerUseCapabilitySettingsLabel,
+      labels.providerCapabilitySetupRequiredDescription,
+      labels.providerCapabilityDisabledDescription,
+      labels.providerCapabilityDisabledByAdminDescription,
+      labels.providerCapabilityUnsupportedDescription,
+      labels.providerCapabilityAvailabilityUnknownDescription,
       labels.slashPaletteCapabilitiesGroup,
       labels.slashPaletteCapabilitiesLoading,
       labels.slashPaletteCommandsGroup,

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import { Spinner } from "@tutti-os/ui-system";
+import type { AgentActivityComposerCapabilityPresentation } from "@tutti-os/agent-activity-core";
 import {
   Globe,
   Info,
@@ -52,6 +53,14 @@ export type AgentSlashPaletteEntry =
       selectAction: "insert" | "settings";
       disabled?: boolean;
       plugin: AgentGUIProviderSkillOption;
+    }
+  | {
+      type: "providerCapability";
+      key: string;
+      label: string;
+      description?: string;
+      disabled?: boolean;
+      capability: AgentActivityComposerCapabilityPresentation;
     };
 
 interface AgentSlashCommandPaletteProps {
@@ -74,6 +83,9 @@ interface AgentSlashCommandPaletteProps {
   ) => void;
   onSelectSkill: (skill: AgentGUIProviderSkillOption) => void;
   onSelectPluginSettings?: (plugin: AgentGUIProviderSkillOption) => void;
+  onSelectProviderCapability?: (
+    capability: AgentActivityComposerCapabilityPresentation
+  ) => void;
 }
 
 const paletteStyles = {
@@ -119,7 +131,8 @@ export function AgentSlashCommandPalette({
   onSelectCapability,
   onSelectCapabilitySettings,
   onSelectSkill,
-  onSelectPluginSettings
+  onSelectPluginSettings,
+  onSelectProviderCapability
 }: AgentSlashCommandPaletteProps): React.JSX.Element | null {
   "use memo";
   const highlightedOptionRef = useRef<HTMLDivElement | null>(null);
@@ -182,7 +195,8 @@ export function AgentSlashCommandPalette({
         const isHighlighted = index === highlightedIndex;
         const isDisabled =
           (entry.type === "capability" && entry.disabled === true) ||
-          (entry.type === "plugin" && entry.disabled === true);
+          (entry.type === "plugin" && entry.disabled === true) ||
+          (entry.type === "providerCapability" && entry.disabled === true);
         const groupType = entryGroupType(entry);
         const entryIcon = slashPaletteEntryIcon(entry);
         const groupHeader =
@@ -242,6 +256,10 @@ export function AgentSlashCommandPalette({
                   onSelectCapability(entry.capability);
                   return;
                 }
+                if (entry.type === "providerCapability") {
+                  onSelectProviderCapability?.(entry.capability);
+                  return;
+                }
                 if (entry.type === "plugin") {
                   if (entry.selectAction === "settings") {
                     onSelectPluginSettings?.(entry.plugin);
@@ -258,7 +276,8 @@ export function AgentSlashCommandPalette({
                   aria-hidden="true"
                   className={cn(
                     paletteStyles.icon,
-                    entry.type === "plugin" && paletteStyles.nativePluginIcon
+                    entry.type === "providerCapability" &&
+                      paletteStyles.nativePluginIcon
                   )}
                 >
                   {entryIcon}
@@ -349,6 +368,12 @@ function capabilityLoadingIndex(
 function entryGroupType(
   entry: AgentSlashPaletteEntry
 ): AgentSlashPaletteEntryGroup {
+  if (entry.type === "providerCapability" || entry.type === "capability") {
+    return "capability";
+  }
+  if (entry.type === "plugin") {
+    return "plugin";
+  }
   if (entry.type !== "skill") {
     return entry.type;
   }
@@ -396,15 +421,8 @@ function labelForEntryGroupType(
 const SLASH_PALETTE_ICON_CLASS = "size-4";
 
 function slashPaletteEntryIcon(entry: AgentSlashPaletteEntry): ReactNode {
-  if (entry.type === "plugin") {
-    switch (entry.plugin.semantic) {
-      case "sites":
-        return <PanelsTopLeft className={SLASH_PALETTE_ICON_CLASS} />;
-      case "browserUse":
-        return <Globe className={SLASH_PALETTE_ICON_CLASS} />;
-      case "computerUse":
-        return <Monitor className={SLASH_PALETTE_ICON_CLASS} />;
-    }
+  if (entry.type === "providerCapability") {
+    return <PanelsTopLeft className={SLASH_PALETTE_ICON_CLASS} />;
   }
   if (entry.type === "capability") {
     return entry.capability.capability === "computerUse" ? (

@@ -259,6 +259,32 @@ describe("agentComposerDraft", () => {
     ]);
   });
 
+  it("keeps a manually typed presentation-hidden skill in the structured execution list", () => {
+    expect(
+      agentComposerDraftToPromptContent({
+        draft: buildAgentComposerDraft({
+          prompt: "$sites:sites-building build a landing page"
+        }),
+        skills: [
+          {
+            name: "sites:sites-building",
+            trigger: "$sites:sites-building",
+            invocation: "promptItem",
+            sourceKind: "plugin",
+            path: "/plugins/sites/SKILL.md"
+          }
+        ]
+      })
+    ).toEqual([
+      { type: "text", text: "$sites:sites-building build a landing page" },
+      {
+        type: "skill",
+        name: "sites:sites-building",
+        path: "/plugins/sites/SKILL.md"
+      }
+    ]);
+  });
+
   it("projects prompt-item aliases into runtime content while preserving visible text", () => {
     expect(
       projectAgentComposerDraftSubmission({
@@ -559,30 +585,30 @@ describe("agentComposerDraft", () => {
     ]);
   });
 
-  it("adds plugin:// mention blocks for referenced Codex plugins", () => {
+  it("adds mention blocks for referenced provider plugins", () => {
     expect(
       agentComposerDraftToPromptContent({
         draft: buildAgentComposerDraft({
-          prompt: "$browser open localhost"
+          prompt: "$provider-tool open localhost"
         }),
         skills: [
           {
-            name: "Browser",
-            trigger: "$browser",
+            name: "Provider Tool",
+            trigger: "$provider-tool",
             invocation: "promptItem",
             sourceKind: "plugin",
-            path: "plugin://browser@openai-bundled",
+            path: "plugin://provider-tool@example-marketplace",
             kind: "plugin",
-            pluginName: "browser"
+            pluginName: "provider-tool"
           }
         ]
       })
     ).toEqual([
-      { type: "text", text: "$browser open localhost" },
+      { type: "text", text: "$provider-tool open localhost" },
       {
         type: "mention",
-        name: "Browser",
-        path: "plugin://browser@openai-bundled"
+        name: "Provider Tool",
+        path: "plugin://provider-tool@example-marketplace"
       }
     ]);
   });

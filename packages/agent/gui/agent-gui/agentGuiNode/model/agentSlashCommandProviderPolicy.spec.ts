@@ -231,7 +231,7 @@ describe("agentSlashCommandProviderPolicy", () => {
         policy: CODEX_POLICY,
         browserSupported: true,
         commands,
-        draft: "$browser 帮我访问下 google.com"
+        draft: "/browser 帮我访问下 google.com"
       })
     ).toEqual({
       kind: "submitPrompt",
@@ -245,7 +245,7 @@ describe("agentSlashCommandProviderPolicy", () => {
         policy: CODEX_POLICY,
         browserSupported: false,
         commands,
-        draft: "$browser test"
+        draft: "/browser test"
       })
     ).toBeNull();
   });
@@ -286,7 +286,7 @@ describe("agentSlashCommandProviderPolicy", () => {
         policy: CLAUDE_POLICY,
         computerSupported: true,
         commands,
-        draft: "$电脑 点击确认"
+        draft: "/电脑 点击确认"
       })
     ).toEqual({
       kind: "submitPrompt",

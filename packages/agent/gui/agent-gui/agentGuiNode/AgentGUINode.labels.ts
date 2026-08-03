@@ -730,6 +730,21 @@ export function useAgentGUIViewLabels(input: {
       computerUseCapabilitySettingsDescription: t(
         "agentHost.agentGui.computerUseCapabilitySettingsDescription"
       ),
+      providerCapabilitySetupRequiredDescription: t(
+        "agentHost.agentGui.providerCapabilitySetupRequiredDescription"
+      ),
+      providerCapabilityDisabledDescription: t(
+        "agentHost.agentGui.providerCapabilityDisabledDescription"
+      ),
+      providerCapabilityDisabledByAdminDescription: t(
+        "agentHost.agentGui.providerCapabilityDisabledByAdminDescription"
+      ),
+      providerCapabilityUnsupportedDescription: t(
+        "agentHost.agentGui.providerCapabilityUnsupportedDescription"
+      ),
+      providerCapabilityAvailabilityUnknownDescription: t(
+        "agentHost.agentGui.providerCapabilityAvailabilityUnknownDescription"
+      ),
       fileMentionPalette: t("agentHost.agentGui.fileMentionPalette"),
       fileMentionLoading: t("agentHost.agentGui.fileMentionLoading"),
       fileMentionEmpty: t("agentHost.agentGui.fileMentionEmpty"),

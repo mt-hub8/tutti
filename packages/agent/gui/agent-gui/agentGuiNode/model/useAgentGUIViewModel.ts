@@ -50,6 +50,7 @@ export function useAgentGUIViewModel(
     () => candidate.composer,
     [
       candidate.composer.availableCommands,
+      candidate.composer.capabilityPresentations,
       candidate.composer.availableSkills,
       candidate.composer.compactSupported,
       candidate.composer.composerSettings,

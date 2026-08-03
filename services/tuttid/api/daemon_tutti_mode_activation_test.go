@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -99,6 +100,85 @@ func TestUpdateTuttiModeActivationMapsPreferencesAndLegacyEffectAlias(t *testing
 	}
 	if received.Effect == nil || *received.Effect != legacy || received.Speed != nil {
 		t.Fatalf("legacy Set input = %#v, want effect=%d and omitted speed", received, legacy)
+	}
+}
+
+func TestUpdateTuttiModeActivationWaitsForSharedSessionPolicyLock(t *testing.T) {
+	t.Parallel()
+	service := &agentservice.Service{}
+	unlockNativeTurn, err := service.AcquireTuttiModeActivationSessionLock(context.Background(), "workspace-1", "session-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	setStarted := make(chan struct{})
+	responseDone := make(chan struct{})
+	api := DaemonAPI{
+		AgentSessionService: stubAgentSessionService{
+			acquireTuttiModeActivationSessionLockFn: service.AcquireTuttiModeActivationSessionLock,
+		},
+		TuttiModeActivationService: &stubTuttiModeActivationService{setFn: func(context.Context, tuttimodeactivationservice.SetInput) (tuttimodeactivationservice.SetResult, error) {
+			close(setStarted)
+			return tuttimodeactivationservice.SetResult{}, nil
+		}},
+	}
+	go func() {
+		defer close(responseDone)
+		_, _ = api.UpdateWorkspaceAgentSessionTuttiModeActivation(context.Background(), tuttigenerated.UpdateWorkspaceAgentSessionTuttiModeActivationRequestObject{
+			WorkspaceID: "workspace-1", AgentSessionID: "session-1",
+			Body: &tuttigenerated.UpdateTuttiModeActivationRequest{
+				Status: tuttigenerated.TuttiModeActivationStatusActive, Source: tuttigenerated.TuttiModeActivationSourceSlashCommand,
+			},
+		})
+	}()
+	select {
+	case <-setStarted:
+		t.Fatal("activation Set started while the native session-policy lock was held")
+	case <-time.After(25 * time.Millisecond):
+	}
+	unlockNativeTurn()
+	select {
+	case <-setStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for activation Set after the native lock released")
+	}
+	select {
+	case <-responseDone:
+	case <-time.After(time.Second):
+		t.Fatal("activation update deadlocked")
+	}
+}
+
+func TestUpdateTuttiModeActivationSetErrorReleasesSharedSessionPolicyLock(t *testing.T) {
+	t.Parallel()
+	service := &agentservice.Service{}
+	api := DaemonAPI{
+		AgentSessionService: stubAgentSessionService{
+			acquireTuttiModeActivationSessionLockFn: service.AcquireTuttiModeActivationSessionLock,
+		},
+		TuttiModeActivationService: &stubTuttiModeActivationService{setFn: func(context.Context, tuttimodeactivationservice.SetInput) (tuttimodeactivationservice.SetResult, error) {
+			return tuttimodeactivationservice.SetResult{}, errors.New("injected Set failure")
+		}},
+	}
+	if _, err := api.UpdateWorkspaceAgentSessionTuttiModeActivation(context.Background(), tuttigenerated.UpdateWorkspaceAgentSessionTuttiModeActivationRequestObject{
+		WorkspaceID: "workspace-1", AgentSessionID: "session-1",
+		Body: &tuttigenerated.UpdateTuttiModeActivationRequest{
+			Status: tuttigenerated.TuttiModeActivationStatusActive, Source: tuttigenerated.TuttiModeActivationSourceSlashCommand,
+		},
+	}); err != nil {
+		t.Fatalf("UpdateWorkspaceAgentSessionTuttiModeActivation transport error: %v", err)
+	}
+	recovered := make(chan struct{})
+	go func() {
+		unlock, lockErr := service.AcquireTuttiModeActivationSessionLock(context.Background(), "workspace-1", "session-1")
+		if lockErr == nil {
+			unlock()
+		}
+		close(recovered)
+	}()
+	select {
+	case <-recovered:
+	case <-time.After(time.Second):
+		t.Fatal("Set error left the shared session-policy lock held")
 	}
 }
 

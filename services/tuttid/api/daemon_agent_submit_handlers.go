@@ -46,6 +46,12 @@ func (api DaemonAPI) CreateWorkspaceAgentSession(ctx context.Context, request tu
 			InvalidRequestErrorJSONResponse: invalidRequestError(capabilityRefsErr),
 		}, nil
 	}
+	turnCapabilityInvocation, turnCapabilityInvocationErr := turnCapabilityInvocationFromGenerated(request.Body.TurnCapabilityInvocation)
+	if turnCapabilityInvocationErr != nil {
+		return tuttigenerated.CreateWorkspaceAgentSession400JSONResponse{
+			InvalidRequestErrorJSONResponse: invalidRequestError(turnCapabilityInvocationErr),
+		}, nil
+	}
 	initialTuttiModeActivation, activationErr := tuttiModeActivationIntentFromGenerated(request.Body.InitialTuttiModeActivation)
 	if activationErr != nil {
 		return tuttigenerated.CreateWorkspaceAgentSession400JSONResponse{
@@ -85,6 +91,7 @@ func (api DaemonAPI) CreateWorkspaceAgentSession(ctx context.Context, request tu
 		Cwd:                        request.Body.Cwd,
 		InitialContent:             agentPromptContentFromGenerated(request.Body.InitialContent),
 		InitialDisplayPrompt:       stringPtrValue(request.Body.InitialDisplayPrompt),
+		TurnCapabilityInvocation:   turnCapabilityInvocation,
 		Metadata:                   metadata,
 		Model:                      request.Body.Model,
 		PermissionModeID:           request.Body.PermissionModeId,
@@ -214,16 +221,29 @@ func (api DaemonAPI) SendWorkspaceAgentSessionInput(ctx context.Context, request
 			InvalidRequestErrorJSONResponse: invalidRequestError(capabilityRefsErr),
 		}, nil
 	}
+	turnCapabilityInvocation, turnCapabilityInvocationErr := turnCapabilityInvocationFromGenerated(request.Body.TurnCapabilityInvocation)
+	if turnCapabilityInvocationErr != nil {
+		return tuttigenerated.SendWorkspaceAgentSessionInput400JSONResponse{
+			InvalidRequestErrorJSONResponse: invalidRequestError(turnCapabilityInvocationErr),
+		}, nil
+	}
+	guidance := request.Body.Guidance != nil && *request.Body.Guidance
+	if guidance && turnCapabilityInvocation != nil {
+		return tuttigenerated.SendWorkspaceAgentSessionInput400JSONResponse{
+			InvalidRequestErrorJSONResponse: invalidRequestError(apierrors.MalformedRequest(apierrors.WithDeveloperMessage("turnCapabilityInvocation is not available for guidance"))),
+		}, nil
+	}
 	clientSubmitID := strings.TrimSpace(request.Body.ClientSubmitId)
 	metadata := agentSubmitMetadata(request.Body.SubmitDiagnostics)
 	logSendAgentSubmitTrace("api.send.received", string(request.WorkspaceID), string(request.AgentSessionID), clientSubmitID, metadata, "", "", "", nil)
 	result, err := api.AgentSessionService.SendInput(ctx, string(request.WorkspaceID), string(request.AgentSessionID), agentservice.SendInput{
-		CapabilityRefs: capabilityRefs,
-		Content:        agentPromptContentFromGenerated(request.Body.Content),
-		DisplayPrompt:  stringPtrValue(request.Body.DisplayPrompt),
-		Guidance:       request.Body.Guidance != nil && *request.Body.Guidance,
-		ClientSubmitID: clientSubmitID,
-		Metadata:       metadata,
+		CapabilityRefs:           capabilityRefs,
+		Content:                  agentPromptContentFromGenerated(request.Body.Content),
+		DisplayPrompt:            stringPtrValue(request.Body.DisplayPrompt),
+		Guidance:                 guidance,
+		TurnCapabilityInvocation: turnCapabilityInvocation,
+		ClientSubmitID:           clientSubmitID,
+		Metadata:                 metadata,
 	})
 	if err != nil {
 		logSendAgentSubmitTrace("api.send.failed", string(request.WorkspaceID), string(request.AgentSessionID), clientSubmitID, metadata, "", "", "", err)
@@ -290,6 +310,25 @@ func (api DaemonAPI) SendWorkspaceAgentSessionInput(ctx context.Context, request
 		return nil, err
 	}
 	return tuttigenerated.SendWorkspaceAgentSessionInput200JSONResponse(response), nil
+}
+
+func turnCapabilityInvocationFromGenerated(input *tuttigenerated.AgentTurnCapabilityInvocation) (*agenthost.TurnCapabilityInvocation, *apierrors.ProtocolError) {
+	if input == nil {
+		return nil, nil
+	}
+	semantic := strings.TrimSpace(string(input.Semantic))
+	if semantic == "" || !input.Semantic.Valid() {
+		return nil, apierrors.MalformedRequest(apierrors.WithDeveloperMessage("turnCapabilityInvocation.semantic is invalid"))
+	}
+	invocation := &agenthost.TurnCapabilityInvocation{Semantic: semantic}
+	if input.Consent != nil {
+		consent := *input.Consent
+		if !consent.Valid() {
+			return nil, apierrors.MalformedRequest(apierrors.WithDeveloperMessage("turnCapabilityInvocation.consent is invalid"))
+		}
+		invocation.Consent = agenthost.TurnCapabilityConsent(consent)
+	}
+	return invocation, nil
 }
 
 func shouldRecordDirectSessionSend(

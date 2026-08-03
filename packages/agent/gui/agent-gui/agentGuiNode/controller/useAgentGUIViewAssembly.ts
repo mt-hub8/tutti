@@ -220,6 +220,8 @@ export function useAgentGUIViewAssembly(input: UseAgentGUIViewAssemblyInput) {
     composer: {
       handoffAgentTargets: input.handoffAgentTargets,
       availableCommands: detail.availableCommands,
+      capabilityPresentations: detail.capabilityPresentations,
+      turnCapabilityStates: detail.turnCapabilityStates,
       availableSkills: detail.availableSkills,
       draftPrompt: detail.draftPrompt,
       draftContent: detail.draftContent,

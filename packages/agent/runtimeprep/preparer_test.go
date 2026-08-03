@@ -1744,7 +1744,7 @@ func TestDefaultPreparerCleanupRemovesClaudeSystemPromptRuntimeRoot(t *testing.T
 	}
 }
 
-func TestCodexPreparerSkipsUserBrowserSkillWhenBrowserUseEnabled(t *testing.T) {
+func TestCodexPreparerRetainsManagedBrowserSkillWithoutAutomaticHandoff(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv(browserUseSwitchEnv, "")
@@ -1787,8 +1787,8 @@ func TestCodexPreparerSkipsUserBrowserSkillWhenBrowserUseEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("codex AGENTS.md missing: %v", err)
 	}
-	if !strings.Contains(string(codexAgents), "`$browser-use`") {
-		t.Fatalf("codex AGENTS.md content = %q, want browser-use policy", string(codexAgents))
+	if strings.Contains(string(codexAgents), "`$browser-use`") {
+		t.Fatalf("codex AGENTS.md content = %q, must not prefer Tutti browser automatically", string(codexAgents))
 	}
 }
 

@@ -94,6 +94,86 @@ describe("useComposerPaletteCatalog", () => {
       }
     ]);
   });
+
+  it("lets a provider-reserved alias suppress only its matching legacy slash command", () => {
+    const { result } = renderHook(() =>
+      useComposerPaletteCatalog({
+        provider: "provider-with-aliases",
+        isGoalModeActive: false,
+        goalSupported: false,
+        paletteDraftPrompt: "/browser",
+        availableCommands: [],
+        availableSkills: [
+          {
+            name: "review",
+            trigger: "$review",
+            sourceKind: "personal",
+            kind: "skill"
+          }
+        ],
+        capabilityPresentations: [
+          {
+            name: "browser",
+            label: "Browser",
+            trigger: "/browser",
+            status: "unknown",
+            invocation: "promptItem",
+            invocationScope: "turn",
+            semantic: "browserUse"
+          }
+        ],
+        hasCompactableContext: false,
+        compactSupported: false,
+        composerSettings: {
+          ...composerSettings(),
+          supportsBrowser: true
+        },
+        capabilityControlsReadOnly: false,
+        labels: labels(),
+        uiLanguage: "en",
+        editorHandleRef: createRef<AgentRichTextEditorHandle>()
+      })
+    );
+
+    expect(result.current.slashPaletteEntries).toEqual([
+      expect.objectContaining({
+        type: "providerCapability",
+        key: "capability:browserUse",
+        disabled: true
+      })
+    ]);
+    expect(result.current.filteredSkills).toEqual([]);
+  });
+
+  it("keeps the legacy slash command when the provider sends no reserved aliases", () => {
+    const { result } = renderHook(() =>
+      useComposerPaletteCatalog({
+        provider: "legacy-provider",
+        isGoalModeActive: false,
+        goalSupported: false,
+        paletteDraftPrompt: "/browser",
+        availableCommands: [],
+        availableSkills: [],
+        hasCompactableContext: false,
+        compactSupported: false,
+        composerSettings: {
+          ...composerSettings(),
+          supportsBrowser: true
+        },
+        capabilityControlsReadOnly: false,
+        labels: labels(),
+        uiLanguage: "en",
+        editorHandleRef: createRef<AgentRichTextEditorHandle>()
+      })
+    );
+
+    expect(result.current.slashPaletteEntries).toEqual([
+      expect.objectContaining({
+        type: "capability",
+        key: "capability:browserUse"
+      })
+    ]);
+  });
 });
 
 function composerSettings(): AgentGUIComposerSettingsVM {

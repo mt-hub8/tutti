@@ -74,57 +74,70 @@ type scriptedAppServerConnection struct {
 	recv   chan ProcessFrame
 	closed chan struct{}
 
-	modelList                       []any
-	userAgent                       string
-	forkChildThreadID               string
-	forkedFromThreadID              string
-	omitForkedFromThreadID          bool
-	emptyForkedFromThreadID         bool
-	forkResponseLastTurnID          string
-	forkResponseTurnIDs             []string
-	threadReadTurnIDs               []string
-	forkRPCError                    bool
-	requiresAuth                    bool
-	collaborationModeUnsupported    bool
-	emitPlanItem                    bool
-	accountReadError                bool
-	turnStatus                      string // completed (default) | failed | interrupted
-	turnError                       map[string]any
-	holdTurn                        bool              // do not finish the turn until released
-	steeredTurnStart                bool              // turn/start returns a queued stub turn (input steered into the running turn): no turn/started, no auto-completion
-	ignoreInterrupt                 bool              // ack turn/interrupt but never complete the turn (wedged codex)
-	hangInterrupt                   bool              // never even acknowledge the turn/interrupt RPC (fully wedged codex)
-	interruptTurnIDMismatch         string            // reject the first turn/interrupt with "expected active turn id X but found <this>"; a retry against the reported id succeeds
-	interruptAttempts               []string          // turnId requested on every turn/interrupt call, in order
-	childNicknames                  map[string]string // thread/read agentNickname responses by threadId
-	turnStartEntered                chan struct{}
-	turnStartRelease                chan struct{}
-	hangTurnStart                   bool
-	hangSteer                       bool
-	threadName                      string
-	commandApproval                 bool
-	userInputRequest                bool
-	compactSilent                   bool          // stream turn/started+turn/completed for /compact but no contextCompaction item notifications
-	reviewInline                    bool          // stream review output as inline reasoning/command items
-	reviewInlineSummaryDelta        bool          // stream review reasoning via summaryTextDelta with empty completed summary
-	reviewHang                      bool          // respond to review/start but never complete the turn
-	foreignThreadNoise              bool          // emit subagent/foreign thread notifications during a parent turn
-	reviewStartEntered              chan struct{} // closed once review/start has responded
-	approvalResponse                map[string]any
-	goal                            map[string]any
-	goalStartsTurn                  bool
-	goalNotificationsBeforeResponse bool
-	goalUpdatedOmitsTurnID          bool
-	goalTurnsStarted                int
-	goalCompletionAfterTurns        int
-	goalTurnFailAtTurn              int // goal-driven turn number (1-based) that settles as "failed" instead of "completed"
-	goalCleared                     bool
-	goalOmitUpdatedAt               bool
-	goalEmptyResponse               bool
-	replayTokenUsageOnResume        bool // mirror real codex: emit token usage during thread/resume
-	threadResumeError               bool // fail thread/resume with an RPC error
-	closeOnce                       sync.Once
-	closeCount                      int
+	modelList                        []any
+	userAgent                        string
+	forkChildThreadID                string
+	forkedFromThreadID               string
+	omitForkedFromThreadID           bool
+	emptyForkedFromThreadID          bool
+	forkResponseLastTurnID           string
+	forkResponseTurnIDs              []string
+	threadReadTurnIDs                []string
+	forkRPCError                     bool
+	requiresAuth                     bool
+	collaborationModeUnsupported     bool
+	emitPlanItem                     bool
+	accountReadError                 bool
+	turnStatus                       string // completed (default) | failed | interrupted
+	turnError                        map[string]any
+	holdTurn                         bool              // do not finish the turn until released
+	steeredTurnStart                 bool              // turn/start returns a queued stub turn (input steered into the running turn): no turn/started, no auto-completion
+	ignoreInterrupt                  bool              // ack turn/interrupt but never complete the turn (wedged codex)
+	hangInterrupt                    bool              // never even acknowledge the turn/interrupt RPC (fully wedged codex)
+	interruptTurnIDMismatch          string            // reject the first turn/interrupt with "expected active turn id X but found <this>"; a retry against the reported id succeeds
+	interruptAttempts                []string          // turnId requested on every turn/interrupt call, in order
+	childNicknames                   map[string]string // thread/read agentNickname responses by threadId
+	turnStartEntered                 chan struct{}
+	turnStartRelease                 chan struct{}
+	hangTurnStart                    bool
+	hangSteer                        bool
+	threadName                       string
+	commandApproval                  bool
+	userInputRequest                 bool
+	compactSilent                    bool          // stream turn/started+turn/completed for /compact but no contextCompaction item notifications
+	reviewInline                     bool          // stream review output as inline reasoning/command items
+	reviewInlineSummaryDelta         bool          // stream review reasoning via summaryTextDelta with empty completed summary
+	reviewHang                       bool          // respond to review/start but never complete the turn
+	foreignThreadNoise               bool          // emit subagent/foreign thread notifications during a parent turn
+	reviewStartEntered               chan struct{} // closed once review/start has responded
+	approvalResponse                 map[string]any
+	goal                             map[string]any
+	goalStartsTurn                   bool
+	goalNotificationsBeforeResponse  bool
+	goalUpdatedOmitsTurnID           bool
+	goalTurnsStarted                 int
+	goalCompletionAfterTurns         int
+	goalTurnFailAtTurn               int // goal-driven turn number (1-based) that settles as "failed" instead of "completed"
+	goalCleared                      bool
+	goalOmitUpdatedAt                bool
+	goalEmptyResponse                bool
+	replayTokenUsageOnResume         bool // mirror real codex: emit token usage during thread/resume
+	threadResumeError                bool // fail thread/resume with an RPC error
+	capabilityPluginAvailable        bool
+	capabilityMCPTools               bool
+	capabilitySitesApp               bool
+	capabilityPluginID               string
+	capabilityPluginAvailability     string
+	capabilityMCPName                string
+	capabilitySkills                 []any
+	capabilitySkillsAfterForceReload bool
+	capabilityReloadMakesMCPReady    bool
+	capabilityReloadMakesSitesReady  bool
+	capabilityReloadError            bool
+	capabilityReloadEntered          chan struct{}
+	capabilityReloadRelease          chan struct{}
+	closeOnce                        sync.Once
+	closeCount                       int
 }
 
 func (c *scriptedAppServerConnection) sendJSON(value map[string]any) {
@@ -451,6 +464,78 @@ func (c *scriptedAppServerConnection) Send(data []byte) error {
 					"modelProvider":   "openai",
 				},
 			})
+		case "plugin/list":
+			c.mu.Lock()
+			available := c.capabilityPluginAvailable
+			pluginID := firstNonEmpty(c.capabilityPluginID, "browser@openai-bundled")
+			availability := firstNonEmpty(c.capabilityPluginAvailability, "AVAILABLE")
+			c.mu.Unlock()
+			plugins := []any{}
+			if available {
+				plugins = append(plugins, map[string]any{
+					"id": pluginID, "installed": true, "enabled": true, "availability": availability,
+					"installPolicy": "AVAILABLE",
+				})
+			}
+			c.sendJSON(map[string]any{"id": message.ID, "result": map[string]any{"marketplaces": []any{map[string]any{"plugins": plugins}}}})
+		case "mcpServerStatus/list":
+			c.mu.Lock()
+			tools := c.capabilityMCPTools
+			name := firstNonEmpty(c.capabilityMCPName, "node_repl")
+			c.mu.Unlock()
+			toolSet := map[string]any{}
+			if tools {
+				toolSet["open"] = map[string]any{}
+			}
+			c.sendJSON(map[string]any{"id": message.ID, "result": map[string]any{"data": []any{map[string]any{"name": name, "authStatus": "bearerToken", "tools": toolSet}}}})
+		case "config/mcpServer/reload":
+			c.mu.Lock()
+			reloadError := c.capabilityReloadError
+			makeReady := c.capabilityReloadMakesMCPReady
+			entered, release := c.capabilityReloadEntered, c.capabilityReloadRelease
+			if makeReady {
+				c.capabilityMCPTools = true
+			}
+			c.mu.Unlock()
+			if entered != nil {
+				select {
+				case entered <- struct{}{}:
+				default:
+				}
+			}
+			if release != nil {
+				<-release
+			}
+			if reloadError {
+				c.sendJSON(map[string]any{"id": message.ID, "error": map[string]any{"code": -32601, "message": "reload unsupported"}})
+				continue
+			}
+			c.sendJSON(map[string]any{"id": message.ID, "result": map[string]any{}})
+		case "skills/list":
+			c.mu.Lock()
+			if c.capabilityReloadMakesSitesReady {
+				c.capabilitySitesApp = true
+			}
+			skills := append([]any(nil), c.capabilitySkills...)
+			forceReload, _ := message.Params["forceReload"].(bool)
+			if c.capabilitySkillsAfterForceReload && !forceReload {
+				skills = nil
+			}
+			c.mu.Unlock()
+			data := []any{}
+			if len(skills) > 0 {
+				data = append(data, map[string]any{"skills": skills})
+			}
+			c.sendJSON(map[string]any{"id": message.ID, "result": map[string]any{"data": data}})
+		case "app/list":
+			c.mu.Lock()
+			sites := c.capabilitySitesApp
+			c.mu.Unlock()
+			data := []any{}
+			if sites {
+				data = append(data, map[string]any{"id": "sites", "isEnabled": true, "isAccessible": true})
+			}
+			c.sendJSON(map[string]any{"id": message.ID, "result": map[string]any{"data": data}})
 		case appServerMethodThreadFork:
 			if c.forkRPCError {
 				c.sendJSON(map[string]any{

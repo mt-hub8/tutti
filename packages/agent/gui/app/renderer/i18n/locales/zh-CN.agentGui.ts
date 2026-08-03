@@ -124,6 +124,20 @@ export const zhCNAgentGui = {
     cancel: "取消",
     confirm: "启用完全访问权限"
   },
+  capabilityConsent: {
+    title: "要为此对话启用 {{capability}} 吗？",
+    description: "这只会为当前对话启用 {{capability}}，不会授予 macOS 权限",
+    cancel: "取消",
+    confirm: "为此对话启用"
+  },
+  providerCapabilitySetupRequiredDescription:
+    "请安装或启用此能力后重试，任务会保留在编辑器中",
+  providerCapabilityDisabledDescription:
+    "请启用此能力后重试，任务会保留在编辑器中",
+  providerCapabilityDisabledByAdminDescription: "此能力已被管理员禁用",
+  providerCapabilityUnsupportedDescription: "当前环境不支持此能力",
+  providerCapabilityAvailabilityUnknownDescription:
+    "无法确认是否可用，请刷新选项后重试",
   fullAccessRestoredWarning: {
     title: "完全访问权限已开启",
     description:

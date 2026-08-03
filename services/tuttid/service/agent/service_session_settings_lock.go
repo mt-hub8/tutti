@@ -49,6 +49,18 @@ func (s *Service) acquireSessionSettingsLock(
 	}, nil
 }
 
+// AcquireTuttiModeActivationSessionLock exposes the same narrow product
+// serialization boundary used by Host session lifecycle work. It lets the
+// activation HTTP adapter linearize a policy mutation against native turn
+// admission without making the activation service a Host lifecycle owner.
+func (s *Service) AcquireTuttiModeActivationSessionLock(
+	ctx context.Context,
+	workspaceID string,
+	agentSessionID string,
+) (func(), error) {
+	return s.acquireSessionSettingsLock(ctx, workspaceID, agentSessionID)
+}
+
 func (s *Service) releaseSessionSettingsLockRef(key string, lock *serviceSessionSettingsLock) {
 	s.sessionSettingsMu.Lock()
 	lock.refs--

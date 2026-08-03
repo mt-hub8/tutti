@@ -373,6 +373,61 @@ func TestCodexAppServerAdapterResumeThreadFailureKeepsPreviousSessionLive(t *tes
 	}
 }
 
+func TestCodexAppServerAdapterResumeAuthRequiredReplacementKeepsPreviousSessionLive(t *testing.T) {
+	t.Parallel()
+
+	transport := &multiProcAppServerTransport{}
+	adapter := NewCodexAppServerAdapter(transport)
+	session := testAppServerSession()
+
+	if _, err := adapter.Start(context.Background(), session); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	transport.setConfigure(func(conn *scriptedAppServerConnection) {
+		conn.requiresAuth = true
+	})
+	session.ProviderSessionID = "codex-thread-1"
+	if err := adapter.Resume(context.Background(), session); err == nil {
+		t.Fatal("Resume with auth-required replacement should error")
+	}
+	spawned, live := transport.snapshot()
+	if spawned != 2 || len(live) != 1 || live[0] != transport.conn(0) {
+		t.Fatalf("spawned=%d live=%d, want only original process live", spawned, len(live))
+	}
+	if !connClosed(transport.conn(1)) || !adapter.HasLiveSession(session) {
+		t.Fatal("auth-required replacement did not retain the original live client")
+	}
+	if _, err := adapter.Exec(context.Background(), session, []PromptContentBlock{{Type: "text", Text: "ordinary message"}}, "ordinary message", "ordinary-turn", nil, nil); err != nil {
+		t.Fatalf("old live client cannot Exec after rejected replacement: %v", err)
+	}
+	if requests := appServerRequestParamsList(t, transport.conn(0), appServerMethodTurnStart); len(requests) != 1 {
+		t.Fatalf("old client turn/start requests = %d, want 1", len(requests))
+	}
+}
+
+func TestCodexAppServerAdapterResumeAuthRequiredColdKeepsAuthRequiredState(t *testing.T) {
+	t.Parallel()
+
+	transport := &multiProcAppServerTransport{}
+	transport.setConfigure(func(conn *scriptedAppServerConnection) {
+		conn.requiresAuth = true
+	})
+	adapter := NewCodexAppServerAdapter(transport)
+	session := testAppServerSession()
+	session.ProviderSessionID = "codex-thread-1"
+
+	if err := adapter.Resume(context.Background(), session); err != nil {
+		t.Fatalf("cold Resume with auth required: %v", err)
+	}
+	state := adapter.SessionState(session)
+	if state.AuthState != "auth_required" {
+		t.Fatalf("auth state = %q, want auth_required", state.AuthState)
+	}
+	if adapter.HasLiveSession(session) {
+		t.Fatal("cold auth-required Resume unexpectedly has a live client")
+	}
+}
+
 func TestCodexAppServerAdapterStartReleaseRaceLeavesNoOrphanProcess(t *testing.T) {
 	t.Parallel()
 

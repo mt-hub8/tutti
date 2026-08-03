@@ -153,6 +153,7 @@ function createViewModel(): AgentGUINodeViewModel {
     composer: {
       handoffAgentTargets: [],
       availableCommands: [],
+      capabilityPresentations: [],
       availableSkills: [],
       draftPrompt: "",
       draftContent: buildAgentComposerDraft({ prompt: "" }),

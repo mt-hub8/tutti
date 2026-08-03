@@ -17,6 +17,10 @@ type TuttiModeActivationService interface {
 	Set(context.Context, tuttimodeactivationservice.SetInput) (tuttimodeactivationservice.SetResult, error)
 }
 
+type TuttiModeActivationSessionLocker interface {
+	AcquireTuttiModeActivationSessionLock(context.Context, string, string) (func(), error)
+}
+
 func (api DaemonAPI) GetWorkspaceAgentSessionTuttiModeActivation(ctx context.Context, request tuttigenerated.GetWorkspaceAgentSessionTuttiModeActivationRequestObject) (tuttigenerated.GetWorkspaceAgentSessionTuttiModeActivationResponseObject, error) {
 	if api.AgentSessionService == nil || api.TuttiModeActivationService == nil {
 		return tuttigenerated.GetWorkspaceAgentSessionTuttiModeActivation503JSONResponse{
@@ -69,6 +73,15 @@ func (api DaemonAPI) UpdateWorkspaceAgentSessionTuttiModeActivation(ctx context.
 	if _, err := api.AgentSessionService.Get(ctx, workspaceID, agentSessionID); err != nil {
 		return writeUpdateTuttiModeActivationError(err), nil
 	}
+	unlock := func() {}
+	if locker, ok := api.AgentSessionService.(TuttiModeActivationSessionLocker); ok {
+		var lockErr error
+		unlock, lockErr = locker.AcquireTuttiModeActivationSessionLock(ctx, workspaceID, agentSessionID)
+		if lockErr != nil {
+			return writeUpdateTuttiModeActivationError(lockErr), nil
+		}
+	}
+	defer unlock()
 	result, err := api.TuttiModeActivationService.Set(ctx, tuttimodeactivationservice.SetInput{
 		WorkspaceID:      workspaceID,
 		AgentSessionID:   agentSessionID,

@@ -90,7 +90,7 @@ func (s *Store) AppendActivityEvent(
 	if err := replay.ValidateActivityEvent(event); err != nil {
 		return err
 	}
-	portable, err := s.portableActivityEventPayload(event.Payload)
+	portable, err := s.portableActivityEventPayload(replay.SanitizeCapabilityTransientPayload(event.Payload))
 	if err != nil {
 		return err
 	}

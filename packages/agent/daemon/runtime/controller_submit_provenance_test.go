@@ -2,7 +2,9 @@ package agentruntime
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +12,38 @@ import (
 	agentsessionstore "github.com/tutti-os/tutti/packages/agent/daemon/activity"
 	activityshared "github.com/tutti-os/tutti/packages/agent/daemon/activity/events"
 )
+
+func TestSubmitProvenanceRecordingDoesNotPersistRawCapabilityInvocationOrConsent(t *testing.T) {
+	reporter := &recordingReporter{}
+	adapter := &recordingStartAdapter{provider: "recording-privacy"}
+	controller := NewController([]Adapter{adapter}, reporter)
+	started, err := controller.Start(t.Context(), StartInput{
+		RoomID: "workspace-recording", AgentSessionID: "session-recording", Provider: adapter.Provider(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := []PromptContentBlock{{Type: "text", Text: "use Browser"}, {Type: "mention", Name: "browser@openai-bundled", Path: "plugin://browser@openai-bundled"}}
+	if _, err := controller.Exec(t.Context(), ExecInput{RoomID: started.Session.RoomID, AgentSessionID: started.Session.AgentSessionID, TurnID: "turn-recording", ClientSubmitID: "submit-recording", CanonicalSubmitOccurredAtUnixMS: 1, Content: content}); err != nil {
+		t.Fatal(err)
+	}
+	if err := controller.DurablyReportSubmitProvenance(t.Context(), SubmitProvenanceInput{RoomID: started.Session.RoomID, AgentSessionID: started.Session.AgentSessionID, TurnID: "turn-recording", ClientSubmitID: "submit-recording", CanonicalSubmitOccurredAtUnixMS: 1, Content: content}); err != nil {
+		t.Fatal(err)
+	}
+	calls := reporter.snapshot()
+	if len(calls) == 0 {
+		t.Fatal("expected durable submit provenance report")
+	}
+	raw, err := json.Marshal(calls[len(calls)-1].report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"turnCapabilityInvocation", "explicitSession", "AuthorizeCodexNativeComputerUse", "authorization", "consent"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("recording contains forbidden capability payload %q: %s", forbidden, raw)
+		}
+	}
+}
 
 type canonicalSubmitSequenceAdapter struct {
 	recordingStartAdapter

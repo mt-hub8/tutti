@@ -530,6 +530,22 @@ func (s *SQLiteWorkspaceStore) PrepareSubmitClaim(ctx context.Context, input sto
 	return store.PrepareSubmitClaim(ctx, input)
 }
 
+func (s *SQLiteWorkspaceStore) GetSubmitClaim(ctx context.Context, workspaceID, sessionID, clientSubmitID string) (storesqlite.SubmitClaim, bool, error) {
+	store, err := s.store(workspaceID)
+	if err != nil {
+		return storesqlite.SubmitClaim{}, false, err
+	}
+	return store.GetSubmitClaim(ctx, workspaceID, sessionID, clientSubmitID)
+}
+
+func (s *SQLiteWorkspaceStore) SetSubmitClaimCapabilityPlan(ctx context.Context, workspaceID, sessionID, clientSubmitID, planJSON string, now int64) (storesqlite.SubmitClaim, bool, error) {
+	store, err := s.store(workspaceID)
+	if err != nil {
+		return storesqlite.SubmitClaim{}, false, err
+	}
+	return store.SetSubmitClaimCapabilityPlan(ctx, workspaceID, sessionID, clientSubmitID, planJSON, now)
+}
+
 func (s *SQLiteWorkspaceStore) AcceptSubmitClaim(ctx context.Context, workspaceID, sessionID, clientSubmitID, turnID string, now int64) (storesqlite.SubmitClaim, bool, error) {
 	store, err := s.store(workspaceID)
 	if err != nil {

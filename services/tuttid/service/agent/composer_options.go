@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	"github.com/tutti-os/tutti/packages/agent/daemon/providerregistry"
-	agenthost "github.com/tutti-os/tutti/packages/agent/host"
 	"github.com/tutti-os/tutti/services/tuttid/biz/agentprovider"
-	modelplanbiz "github.com/tutti-os/tutti/services/tuttid/biz/modelplan"
 	preferencesbiz "github.com/tutti-os/tutti/services/tuttid/biz/preferences"
 )
 
@@ -60,87 +58,6 @@ type ComposerConfigOptionValue struct {
 	// selectable but must not treat them as proof the provider can run the
 	// model — create validation runs against the raw catalog only.
 	Requested bool
-}
-
-type ComposerSettings = agenthost.ComposerSettings
-
-type ComposerOptionsInput struct {
-	AgentTargetID            string
-	Cwd                      string
-	Locale                   string
-	Provider                 string
-	WorkspaceID              string
-	Settings                 ComposerSettings
-	IncludeCapabilityCatalog *bool
-	// ResolvedModelPlan is a daemon-only exact plan override supplied by a
-	// WorkspaceAgent resolver. It may contain a credential and must never be
-	// serialized into runtime context or transport responses.
-	ResolvedModelPlan *modelplanbiz.Plan
-	// IgnoreModelPlanBinding forces provider-native credentials and model
-	// discovery for internal probes and subscription checks that must not
-	// inherit the workspace target binding. It is daemon-only and must not be
-	// exposed as a user-facing session setting.
-	IgnoreModelPlanBinding   bool
-	providerTargetRef        map[string]any
-	extensionComposerProfile ExtensionComposerProfile
-}
-
-type ComposerSkillOption struct {
-	Name        string
-	Trigger     string
-	SourceKind  string
-	Description string
-	PluginName  string
-	Path        string
-	Invocation  string
-}
-
-type ComposerCapabilityOption struct {
-	ID          string
-	Kind        string
-	Name        string
-	Label       string
-	Description string
-	Status      string
-	Source      string
-	PluginName  string
-	ServerName  string
-	ToolName    string
-	Trigger     string
-	Path        string
-	Invocation  string
-	// Semantic is a stable presentation and interaction key for a
-	// provider-native capability. It deliberately does not expose provider
-	// implementation identifiers or filesystem-owned icon paths to clients.
-	Semantic string
-}
-
-type ComposerCommandOption struct {
-	Name        string
-	Description string
-	InputHint   string
-}
-
-type ComposerReasoningProfile struct {
-	DefaultValue string
-	Options      []ComposerConfigOptionValue
-}
-
-type ComposerOptions struct {
-	Provider                string
-	Capabilities            []string
-	Commands                []ComposerCommandOption
-	ModelConfig             ComposerConfigOption
-	PermissionConfig        PermissionConfig
-	ReasoningConfig         ComposerConfigOption
-	ReasoningOptionsByModel map[string]ComposerReasoningProfile
-	SpeedConfig             ComposerConfigOption
-	EffectiveSettings       ComposerSettings
-	RuntimeContext          map[string]any
-	Skills                  []ComposerSkillOption
-	CapabilityCatalog       []ComposerCapabilityOption
-	Behavior                providerregistry.ComposerBehaviorDescriptor
-	SlashCommandPolicy      *providerregistry.SlashCommandPolicyDescriptor
 }
 
 func (s *Service) GetComposerOptions(ctx context.Context, input ComposerOptionsInput) (ComposerOptions, error) {
@@ -273,6 +190,13 @@ func (s *Service) GetComposerOptions(ctx context.Context, input ComposerOptionsI
 			launchInput.AgentCapabilitiesExplicit,
 		)
 	}
+	reservedTurnCapabilityAliases := composerReservedTurnCapabilityAliases(
+		agentTargetID,
+		provider,
+		input.providerTargetRef,
+		capabilityCatalog,
+		capabilityErrors,
+	)
 	catalogProjection := composerModelCatalogProjection{}
 	catalogProjectionOK := false
 	if catalogLoad != nil {
@@ -404,20 +328,21 @@ func (s *Service) GetComposerOptions(ctx context.Context, input ComposerOptionsI
 		runtimeContext["configOptions"] = composerConfigOptions(provider, effectiveSettings, modelOptions, reasoningOptions, speedOptions)
 	}
 	options := ComposerOptions{
-		Provider:                provider,
-		Capabilities:            capabilities,
-		Commands:                commands,
-		ModelConfig:             composerModelConfig(provider, effectiveSettings.Model, modelOptions),
-		PermissionConfig:        permissionConfig,
-		ReasoningConfig:         composerReasoningConfigFromOptions(provider, effectiveSettings.ReasoningEffort, reasoningOptions),
-		ReasoningOptionsByModel: reasoningOptionsByModel,
-		SpeedConfig:             composerSpeedConfigFromOptions(provider, effectiveSettings.Speed, speedOptions),
-		EffectiveSettings:       effectiveSettings,
-		RuntimeContext:          runtimeContext,
-		Skills:                  skills,
-		CapabilityCatalog:       capabilityCatalog,
-		Behavior:                composerProfileFor(provider).Behavior,
-		SlashCommandPolicy:      slashCommandPolicy,
+		Provider:                      provider,
+		Capabilities:                  capabilities,
+		Commands:                      commands,
+		ModelConfig:                   composerModelConfig(provider, effectiveSettings.Model, modelOptions),
+		PermissionConfig:              permissionConfig,
+		ReasoningConfig:               composerReasoningConfigFromOptions(provider, effectiveSettings.ReasoningEffort, reasoningOptions),
+		ReasoningOptionsByModel:       reasoningOptionsByModel,
+		SpeedConfig:                   composerSpeedConfigFromOptions(provider, effectiveSettings.Speed, speedOptions),
+		EffectiveSettings:             effectiveSettings,
+		RuntimeContext:                runtimeContext,
+		Skills:                        skills,
+		CapabilityCatalog:             capabilityCatalog,
+		ReservedTurnCapabilityAliases: reservedTurnCapabilityAliases,
+		Behavior:                      composerProfileFor(provider).Behavior,
+		SlashCommandPolicy:            slashCommandPolicy,
 	}
 	if planEndpoint == nil && (composerProfileFor(provider).LiveModelDiscovery ||
 		providerTargetRefKind(input.providerTargetRef) == "agent_extension") {

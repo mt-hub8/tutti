@@ -22,7 +22,12 @@ import type {
 import type { AgentGUIProvider, AgentGUIAgentTarget } from "../../../types";
 import type { WorkspaceReferencePickResult } from "./useComposerDraftAttachments";
 import type { AgentGUIComposerEngagement } from "../engagement/agentGUIEngagement.types";
-import type { AgentActivitySubmitSettingsPatch } from "@tutti-os/agent-activity-core";
+import type {
+  AgentActivitySubmitSettingsPatch,
+  AgentActivityComposerCapabilityPresentation,
+  AgentActivityTurnCapabilityInvocation,
+  AgentActivityTurnCapabilityState
+} from "@tutti-os/agent-activity-core";
 import type {
   ReferenceProvenanceFilterController,
   ReferenceProvenanceFilterSnapshot
@@ -49,6 +54,7 @@ export interface AgentComposerReferenceProvenanceFilters {
 export interface AgentComposerSubmitOptions {
   requiredSettingsPatch?: AgentActivitySubmitSettingsPatch;
   capabilityRefs?: readonly AgentComposerCapabilityReference[];
+  turnCapabilityInvocation?: AgentActivityTurnCapabilityInvocation;
   /**
    * Immutable Tutti presentation captured by the composer that initiated the
    * submit. An explicit inactive snapshot is authoritative over stale draft
@@ -88,6 +94,9 @@ export interface AgentComposerProps {
   hasCompactableContext?: boolean;
   compactSupported?: boolean | null;
   availableSkills?: readonly AgentGUIProviderSkillOption[];
+  capabilityPresentations?: readonly AgentActivityComposerCapabilityPresentation[];
+  /** Durable state from the canonical session, never from a capability catalog. */
+  turnCapabilityStates?: readonly AgentActivityTurnCapabilityState[];
   gate: AgentGUIComposerGate;
   /** View-local lock that does not redefine canonical Composer readiness. */
   presentationEditorDisabled: boolean;
@@ -224,6 +233,11 @@ export interface AgentComposerProps {
     computerUseCapabilityAuthorizationUnknownDescription: string;
     computerUseCapabilitySettingsLabel: string;
     computerUseCapabilitySettingsDescription: string;
+    providerCapabilitySetupRequiredDescription: string;
+    providerCapabilityDisabledDescription: string;
+    providerCapabilityDisabledByAdminDescription: string;
+    providerCapabilityUnsupportedDescription: string;
+    providerCapabilityAvailabilityUnknownDescription: string;
     queuedLabel: string;
     queuePausedByUserLabel: string;
     sendQueuedPromptNext: string;
