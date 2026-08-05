@@ -68,67 +68,11 @@ type CodexTurnCapabilityMention struct {
 }
 
 // CodexTurnCapabilityPromptItem is the provider-local structured input for a
-// capability Turn. Native plans use a plugin mention; Tutti plans use one
-// managed skill selected from the current App Server skills/list response.
+// capability Turn. Native plans use an official plugin mention.
 type CodexTurnCapabilityPromptItem struct {
 	Type string
 	Name string
 	Path string
-}
-
-// CodexTuttiTurnSkillIdentity is the private, stable identity of a Tutti
-// runtime skill. Its path is never inferred here; the adapter must obtain and
-// validate the actual App Server-returned path for the current session.
-type CodexTuttiTurnSkillIdentity struct {
-	Name      string
-	ManagedID string
-}
-
-// CodexTuttiTurnSkillForTurnSemantic maps the public turn semantic to the
-// matching Tutti CLI skill identity. Sites intentionally has no Tutti mapping.
-func CodexTuttiTurnSkillForTurnSemantic(semantic string) (CodexTuttiTurnSkillIdentity, bool) {
-	switch strings.TrimSpace(semantic) {
-	case CodexTurnCapabilitySemanticBrowserUse:
-		return CodexTuttiTurnSkillIdentity{Name: "browser-use", ManagedID: "tutti/browser-use"}, true
-	case CodexTurnCapabilitySemanticComputerUse:
-		return CodexTuttiTurnSkillIdentity{Name: "computer-use", ManagedID: "tutti/computer-use"}, true
-	default:
-		return CodexTuttiTurnSkillIdentity{}, false
-	}
-}
-
-// ValidateCodexTuttiTurnSkill verifies that skills/list selected the managed
-// per-session Tutti skill, not an identically named user/project skill. It is
-// intentionally a readiness check only: missing historic materialization is a
-// setup result, never a partial write into an already-running session.
-func ValidateCodexTuttiTurnSkill(codexHome, semantic, name, path string) bool {
-	identity, ok := CodexTuttiTurnSkillForTurnSemantic(semantic)
-	if !ok || strings.TrimSpace(name) != identity.Name {
-		return false
-	}
-	codexHome = strings.TrimSpace(codexHome)
-	path = strings.TrimSpace(path)
-	if codexHome == "" || path == "" || !filepath.IsAbs(path) || filepath.Base(path) != "SKILL.md" {
-		return false
-	}
-	root, err := filepath.EvalSymlinks(filepath.Join(codexHome, "skills"))
-	if err != nil {
-		return false
-	}
-	skillPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return false
-	}
-	relative, err := filepath.Rel(root, skillPath)
-	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-		return false
-	}
-	marker, err := os.ReadFile(filepath.Join(filepath.Dir(skillPath), ".tutti-managed-skill"))
-	if err != nil || strings.TrimSpace(string(marker)) != identity.ManagedID {
-		return false
-	}
-	info, err := os.Stat(skillPath)
-	return err == nil && !info.IsDir()
 }
 
 // CodexTurnCapabilityBinding is a sanitized snapshot suitable for a daemon

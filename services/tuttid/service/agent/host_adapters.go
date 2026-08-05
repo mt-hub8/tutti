@@ -11,7 +11,6 @@ import (
 	runtimeprep "github.com/tutti-os/tutti/packages/agent/runtimeprep"
 	storesqlite "github.com/tutti-os/tutti/packages/agent/store-sqlite"
 	"github.com/tutti-os/tutti/services/tuttid/biz/agentprovider"
-	"github.com/tutti-os/tutti/services/tuttid/biz/tuttimodeactivation"
 )
 
 type serviceHostPreparation struct {
@@ -442,19 +441,9 @@ func (a serviceHostTurnCapabilityAdmission) AdmitTurnCapability(
 	if !isAuthoritativeCodexTurnCapabilityTarget(harnessTargetID, input.Provider, providerTargetRef) {
 		return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionRejected}
 	}
-	if input.TuttiModeSnapshot != nil && strings.TrimSpace(input.TuttiModeSnapshot.State) == string(tuttimodeactivation.StateActive) {
-		backend := selectCodexTurnBackend(true, input.Invocation.Semantic, legacyTuttiTurnCapabilitySemantic(input.Invocation.Semantic))
-		if backend == codexTurnBackendUnavailable {
-			return agenthost.RuntimeTurnCapabilityAdmissionResult{Disposition: agenthost.RuntimeTurnCapabilityAdmissionRejected}
-		}
-		return agenthost.RuntimeTurnCapabilityAdmissionResult{
-			Disposition: agenthost.RuntimeTurnCapabilityAdmissionAllowed,
-			Plan:        codexTurnCapabilityPlan(backend),
-		}
-	}
 	return agenthost.RuntimeTurnCapabilityAdmissionResult{
 		Disposition: agenthost.RuntimeTurnCapabilityAdmissionAllowed,
-		Plan:        codexTurnCapabilityPlan(codexTurnBackendNative),
+		Plan:        codexNativeTurnCapabilityPlan(),
 	}
 }
 

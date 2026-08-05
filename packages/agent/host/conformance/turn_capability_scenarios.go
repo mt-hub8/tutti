@@ -117,7 +117,13 @@ func runDurableTurnCapabilityAdmissionPlan(ctx context.Context, driver TurnCapab
 func runRejectedInitialTurnCapabilityDoesNotExec(ctx context.Context, driver TurnCapabilityDriver) error {
 	if err := driver.ResetTurnCapability(ctx, TurnCapabilityFixture{
 		InitialSession: true,
-		EnsureResults:  []agenthost.RuntimeTurnCapabilityResult{{Disposition: agenthost.RuntimeTurnCapabilityRejected}},
+		EnsureResults: []agenthost.RuntimeTurnCapabilityResult{{
+			Disposition: agenthost.RuntimeTurnCapabilityRejected,
+			Outcome: &agenthost.RuntimeTurnCapabilityOutcome{
+				NextAction: agenthost.RuntimeTurnCapabilityNextActionRetry,
+				ReasonCode: "conformance_retry",
+			},
+		}},
 	}); err != nil {
 		return err
 	}
@@ -130,8 +136,14 @@ func runRejectedInitialTurnCapabilityDoesNotExec(ctx context.Context, driver Tur
 	if !errors.Is(err, agenthost.ErrTurnCapabilityRejected) {
 		return fmt.Errorf("rejected initial capability create: %w", err)
 	}
+	if _, err := driver.SendTurnCapability(ctx, agenthost.SendInput{
+		TurnID: "turn-after-initial-rejection", ClientSubmitID: "submit-after-initial-rejection",
+		Content: []agenthost.PromptContentBlock{{Type: "text", Text: "ordinary follow-up after rejected capability"}},
+	}); err != nil {
+		return fmt.Errorf("follow-up after rejected initial capability: %w", err)
+	}
 	metrics := driver.TurnCapabilityMetrics()
-	if metrics.EnsureCalls != 1 || metrics.ExecCalls != 0 || metrics.CloseCalls != 1 {
+	if metrics.StartCalls != 1 || metrics.EnsureCalls != 1 || metrics.ExecCalls != 1 || metrics.CloseCalls != 0 {
 		return fmt.Errorf("rejected initial capability metrics=%#v", metrics)
 	}
 	return nil

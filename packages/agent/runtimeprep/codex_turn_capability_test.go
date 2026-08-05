@@ -60,24 +60,6 @@ func TestEnsureCodexTurnCapabilityAlreadyBoundBrowserReturnsValidatedMention(t *
 	}
 }
 
-func TestValidateCodexTuttiTurnSkillRequiresManagedCurrentSessionSkill(t *testing.T) {
-	t.Parallel()
-	codexHome := t.TempDir()
-	skillPath := filepath.Join(codexHome, "skills", "browser-use", "SKILL.md")
-	mustWrite(t, skillPath, "---\nname: browser-use\n---\n")
-	mustWrite(t, filepath.Join(filepath.Dir(skillPath), ".tutti-managed-skill"), "tutti/browser-use\n")
-	if !ValidateCodexTuttiTurnSkill(codexHome, CodexTurnCapabilitySemanticBrowserUse, "browser-use", skillPath) {
-		t.Fatal("managed Browser skill was rejected")
-	}
-	if ValidateCodexTuttiTurnSkill(codexHome, CodexTurnCapabilitySemanticBrowserUse, "browser-use", filepath.Join(codexHome, "outside", "SKILL.md")) {
-		t.Fatal("unmanaged Browser skill was accepted")
-	}
-	mustWrite(t, filepath.Join(filepath.Dir(skillPath), ".tutti-managed-skill"), "tutti/computer-use\n")
-	if ValidateCodexTuttiTurnSkill(codexHome, CodexTurnCapabilitySemanticBrowserUse, "browser-use", skillPath) {
-		t.Fatal("wrong managed identity was accepted")
-	}
-}
-
 func TestEnsureCodexTurnCapabilityBrowserPreparesAndRequiresRebind(t *testing.T) {
 	t.Parallel()
 	codexHome, _ := turnCapabilityBrowserHome(t, false)

@@ -45,50 +45,6 @@ func turnCapabilityRecoveryError(err error) error {
 	}
 }
 
-const initialTurnCapabilityTuttiModeContextKey = "tuttiModeActiveAtInitialCapabilityAdmission"
-const initialTurnCapabilityTuttiModeSnapshotContextKey = "tuttiModeSnapshotAtInitialCapabilityAdmission"
-
-// initialTurnCapabilityAdmissionRuntimeContext carries immutable request
-// policy to the Host-owned post-claim admission seam. Host treats it as opaque;
-// only the product adapter interprets it.
-func initialTurnCapabilityAdmissionRuntimeContext(context map[string]any, intent *TuttiModeActivationIntent) map[string]any {
-	result := clonePayload(context)
-	if result == nil {
-		result = make(map[string]any, 1)
-	}
-	active := initialTuttiModeActive(intent)
-	result[initialTurnCapabilityTuttiModeContextKey] = active
-	if active {
-		result[initialTurnCapabilityTuttiModeSnapshotContextKey] = &agenthost.TuttiModeTurnSnapshot{
-			State: string(intent.State), Source: string(intent.Source),
-			PreferenceVersion: agenthost.TuttiModePreferenceVersionEffectSpeed,
-			Effect:            valueInt(intent.Effect), Speed: valueInt(intent.Speed), OrchestrationIntensity: valueInt(intent.Effect),
-		}
-	}
-	return result
-}
-
-func valueInt(input *int) int {
-	if input == nil {
-		return 0
-	}
-	return *input
-}
-
-func initialTurnCapabilityTuttiModeSnapshot(context map[string]any) *agenthost.TuttiModeTurnSnapshot {
-	value, ok := context[initialTurnCapabilityTuttiModeSnapshotContextKey].(*agenthost.TuttiModeTurnSnapshot)
-	if !ok || value == nil {
-		return nil
-	}
-	copy := *value
-	return &copy
-}
-
-func initialTurnCapabilityTuttiModeActive(context map[string]any) (bool, bool) {
-	active, ok := context[initialTurnCapabilityTuttiModeContextKey].(bool)
-	return active, ok
-}
-
 // validateTurnCapabilityInvocationForService is adapter input validation only;
 // Host remains the owner of claim, admission, runtime preparation, and Exec.
 func validateTurnCapabilityInvocationForService(invocation *agenthost.TurnCapabilityInvocation, initial bool) error {

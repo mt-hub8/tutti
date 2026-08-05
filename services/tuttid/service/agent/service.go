@@ -233,11 +233,11 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 		ConversationDetailMode: input.ConversationDetailMode, Visible: input.Visible,
 		RailPlacement: input.RailPlacement,
 	}
-	// An inactive native capability intent stays transient until Host admission.
-	if input.TurnCapabilityInvocation == nil || initialTuttiModeActive(input.InitialTuttiModeActivation) {
-		if err := s.applyInitialTuttiModeActivation(ctx, workspaceID, input.AgentSessionID, input.InitialTuttiModeActivation); err != nil {
-			return CreateSessionResult{}, err
-		}
+	// Tutti Mode activation is independent from an optional native capability
+	// invocation. A plugin Turn never changes whether the requested mode state
+	// is persisted for its Session.
+	if err := s.applyInitialTuttiModeActivation(ctx, workspaceID, input.AgentSessionID, input.InitialTuttiModeActivation); err != nil {
+		return CreateSessionResult{}, err
 	}
 	var preparedTuttiModeTurnID string
 	var preparedTuttiModeSnapshot tuttimodeactivationbiz.TurnSnapshot
@@ -270,16 +270,39 @@ func (s *Service) CreateWithResult(ctx context.Context, workspaceID string, inpu
 	hostResult, err := s.ApplicationHost().CreateSession(ctx, workspaceID, hostInput)
 	if err != nil {
 		deliveryUnknown := errors.Is(err, agenthost.ErrSubmitDeliveryUnknown) || errors.Is(err, ErrSubmitDeliveryUnknown)
+		recovery := turnCapabilityRecoveryError(err)
+		// Host keeps an initialized Session for a rejected or retryable initial
+		// capability. The daemon must preserve that same session-scoped product
+		// state instead of treating a pre-Exec Turn recovery as a failed create.
+		retainedInitialCapabilitySession := recovery != err &&
+			strings.TrimSpace(hostResult.Session.ID) != "" &&
+			strings.TrimSpace(hostResult.Canonical.ID) != ""
 		if preparedTuttiModeSnapshotBound && !deliveryUnknown {
 			if abandonErr := s.abandonPreparedTuttiModeExec(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID, preparedTuttiModeTurnID, preparedTuttiModeSnapshot, false); abandonErr != nil {
 				return CreateSessionResult{}, deliveryUnknownError(abandonErr)
 			}
 		}
-		if !deliveryUnknown {
+		if !deliveryUnknown && !retainedInitialCapabilitySession {
 			_ = s.deleteTuttiModeActivationSessionState(context.WithoutCancel(ctx), workspaceID, input.AgentSessionID)
 		}
-		if recovered := turnCapabilityRecoveryError(err); recovered != err {
-			return CreateSessionResult{}, recovered
+		if retainedInitialCapabilitySession {
+			keepWorktree = true
+			persistedSession := persistedSessionFromHost(hostResult.Canonical)
+			created, projectionErr := s.projectSessionForResponse(ctx, workspaceID, serviceSessionWithPersistedFreshness(
+				hostResult.Session,
+				persistedSession,
+				s.controller().CanResume(runtimeResumeInputFromRuntimeSession(hostResult.Session)),
+			))
+			if projectionErr != nil {
+				return CreateSessionResult{}, projectionErr
+			}
+			return CreateSessionResult{
+				Session: decorateIsolatedSession(created, isolation, isolationWarnings),
+				TurnID:  strings.TrimSpace(hostResult.TurnID),
+			}, recovery
+		}
+		if recovery != err {
+			return CreateSessionResult{}, recovery
 		}
 		if errors.Is(err, agenthost.ErrTurnCapabilityRejected) || errors.Is(err, agenthost.ErrTurnCapabilityUnsupported) {
 			return CreateSessionResult{}, ErrInvalidArgument

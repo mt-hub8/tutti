@@ -210,14 +210,12 @@ type codexAppServerSessionLock struct {
 }
 
 type codexAppServerSession struct {
-	client                  *codexAppServerClient
-	threadID                string
-	turnCapabilityReadiness map[string]codexTurnCapabilityLiveReadinessState
-	turnCapabilityRefreshes map[string]*codexTurnCapabilityRefreshFlight
-	serverInfo              map[string]any
-	account                 map[string]any
-	rateLimits              map[string]any
-	goal                    map[string]any
+	client     *codexAppServerClient
+	threadID   string
+	serverInfo map[string]any
+	account    map[string]any
+	rateLimits map[string]any
+	goal       map[string]any
 	// goalOperationID/revision identify the latest durable desired-goal write.
 	// They gate future scheduling; accepted Turns retain their own identity.
 	goalOperationID string

@@ -73,10 +73,6 @@ type RuntimeTurnCapabilityAdmissionInput struct {
 	Provider          string
 	ProviderTargetRef map[string]any
 	RuntimeContext    map[string]any
-	// TuttiModeSnapshot is the existing immutable runtime execution input. Host
-	// forwards it to product admission without interpreting its state; an opaque
-	// capability plan must not carry product policy objects.
-	TuttiModeSnapshot *TuttiModeTurnSnapshot
 	Invocation        TurnCapabilityInvocation
 }
 

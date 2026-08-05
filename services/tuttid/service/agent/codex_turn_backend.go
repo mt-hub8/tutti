@@ -5,54 +5,20 @@ import (
 	"strings"
 
 	agenthost "github.com/tutti-os/tutti/packages/agent/host"
-	runtimeprep "github.com/tutti-os/tutti/packages/agent/runtimeprep"
-	"github.com/tutti-os/tutti/services/tuttid/biz/tuttimodeactivation"
 )
 
-// codexTurnBackend is daemon product policy for an already admitted built-in
-// Codex target. It deliberately does not inspect plugin inventory or runtime
-// readiness: mode alone chooses the delivery family.
-type codexTurnBackend string
+const codexNativeTurnCapabilityPlanKey = "codex_native"
 
-const (
-	codexTurnBackendNative      codexTurnBackend = "codex_native"
-	codexTurnBackendTutti       codexTurnBackend = "tutti"
-	codexTurnBackendUnavailable codexTurnBackend = "unavailable"
-)
-
-func codexTurnCapabilityPlan(backend codexTurnBackend) agenthost.RuntimeTurnCapabilityPlan {
-	return agenthost.RuntimeTurnCapabilityPlan{Key: string(backend)}
+// codexNativeTurnCapabilityPlan is the only delivery plan available for the
+// exact built-in Codex target. Tutti Mode is deliberately absent: it is a
+// workflow concern carried by RuntimeExecInput, never a plugin selector.
+func codexNativeTurnCapabilityPlan() agenthost.RuntimeTurnCapabilityPlan {
+	return agenthost.RuntimeTurnCapabilityPlan{Key: codexNativeTurnCapabilityPlanKey}
 }
 
-func legacyTuttiTurnCapabilitySemantic(semantic string) bool {
-	switch strings.TrimSpace(semantic) {
-	case runtimeprep.CodexTurnCapabilitySemanticBrowserUse, runtimeprep.CodexTurnCapabilitySemanticComputerUse:
-		return true
-	default:
-		return false
-	}
-}
-
-// selectCodexTurnBackend is intentionally closed and private. The caller must
-// first prove the exact built-in Codex target; non-Codex providers never enter
-// this policy.
-func selectCodexTurnBackend(tuttiModeActive bool, semantic string, legacySupported bool) codexTurnBackend {
-	if !tuttiModeActive {
-		return codexTurnBackendNative
-	}
-	if legacySupported {
-		return codexTurnBackendTutti
-	}
-	return codexTurnBackendUnavailable
-}
-
-func initialTuttiModeActive(intent *TuttiModeActivationIntent) bool {
-	return intent != nil && strings.TrimSpace(intent.State) == string(tuttimodeactivation.StateActive)
-}
-
-// serviceHostTurnCapabilityPort keeps backend mechanics behind the one Host
-// Ensure call. The plan is supplied directly by the post-claim admission
-// result; this adapter never stores it or looks it up by key.
+// serviceHostTurnCapabilityPort accepts only the fixed native plan at the Host
+// Ensure seam. This keeps Codex plugin delivery provider-local while Host owns
+// claim, lock, and exactly-once Exec ordering.
 type serviceHostTurnCapabilityPort struct {
 	native agenthost.RuntimeTurnCapabilityPort
 }
@@ -61,8 +27,8 @@ func (p serviceHostTurnCapabilityPort) EnsureTurnCapability(
 	ctx context.Context,
 	input agenthost.RuntimeTurnCapabilityInput,
 ) (agenthost.RuntimeTurnCapabilityResult, error) {
-	switch codexTurnBackend(strings.TrimSpace(input.Plan.Key)) {
-	case codexTurnBackendNative, codexTurnBackendTutti:
+	switch strings.TrimSpace(input.Plan.Key) {
+	case codexNativeTurnCapabilityPlanKey:
 		return p.native.EnsureTurnCapability(ctx, input)
 	default:
 		return agenthost.RuntimeTurnCapabilityResult{Disposition: agenthost.RuntimeTurnCapabilityRejected}, nil

@@ -35,7 +35,7 @@ func TestEnsureCodexTurnCapabilityAccumulatesBindingsAcrossSemantics(t *testing.
 	}
 }
 
-func TestEnsureCodexTurnCapabilityKeepsNativeAndTuttiPlansIsolated(t *testing.T) {
+func TestEnsureCodexTurnCapabilityRejectsRetiredTuttiPlan(t *testing.T) {
 	t.Parallel()
 	codexHome := turnCapabilityRuntimeHome(t)
 	adapter := &turnCapabilityRuntimeAdapter{provider: ProviderCodex, live: true}
@@ -49,19 +49,19 @@ func TestEnsureCodexTurnCapabilityKeepsNativeAndTuttiPlansIsolated(t *testing.T)
 	if err != nil || native.Mention.Path != "plugin://"+runtimeprep.CodexNativePluginBrowser || native.PromptItem.Type != "mention" {
 		t.Fatalf("native Browser = %#v, %v", native, err)
 	}
-	tutti, err := controller.EnsureCodexTurnCapability(context.Background(), CodexTurnCapabilityEnsureInput{
+	retired, err := controller.EnsureCodexTurnCapability(context.Background(), CodexTurnCapabilityEnsureInput{
 		RoomID: "room-1", AgentSessionID: "session-1", TurnID: "turn-tutti", ClientSubmitID: "submit-tutti",
 		Semantic: runtimeprep.CodexTurnCapabilitySemanticBrowserUse, PlanKey: "tutti",
 	})
-	if err != nil || tutti.PromptItem.Type != "skill" || tutti.PromptItem.Name != "browser-use" || tutti.Mention.Path != "" {
-		t.Fatalf("Tutti Browser = %#v, %v", tutti, err)
+	if err != nil || retired.Disposition != runtimeprep.CodexTurnCapabilityRejected {
+		t.Fatalf("retired Tutti plan = %#v, %v", retired, err)
 	}
 	nativeAgain, err := controller.EnsureCodexTurnCapability(context.Background(), CodexTurnCapabilityEnsureInput{
 		RoomID: "room-1", AgentSessionID: "session-1", TurnID: "turn-native-again", ClientSubmitID: "submit-native-again",
 		Semantic: runtimeprep.CodexTurnCapabilitySemanticBrowserUse, PlanKey: "codex_native",
 	})
 	if err != nil || nativeAgain.PromptItem.Type != "mention" || nativeAgain.Mention.Path != "plugin://"+runtimeprep.CodexNativePluginBrowser || adapter.resumeCalls() != 0 {
-		t.Fatalf("native Browser after Tutti = %#v, %v, resumes=%d", nativeAgain, err, adapter.resumeCalls())
+		t.Fatalf("native Browser after retired plan = %#v, %v, resumes=%d", nativeAgain, err, adapter.resumeCalls())
 	}
 }
 
@@ -471,24 +471,6 @@ func (a *turnCapabilityRuntimeAdapter) EnsureLiveCodexTurnCapability(_ context.C
 		Binding: runtimeprep.CodexTurnCapabilityBinding{
 			Semantic: semantic, Authorized: semantic != runtimeprep.CodexNativeCapabilityComputer || consent == runtimeprep.CodexTurnCapabilityConsentExplicitSession || codexComputerAuthorized(session.RuntimeContext), Consent: consent,
 		},
-	}, nil
-}
-func (a *turnCapabilityRuntimeAdapter) EnsureLiveCodexTuttiTurnCapability(_ context.Context, session Session, semantic string, consent runtimeprep.CodexTurnCapabilityConsent) (CodexTurnCapabilityEnsureResult, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.ensureCount++
-	if semantic == runtimeprep.CodexTurnCapabilitySemanticComputerUse && consent != runtimeprep.CodexTurnCapabilityConsentExplicitSession && !codexComputerAuthorized(session.RuntimeContext) {
-		return CodexTurnCapabilityEnsureResult{Disposition: runtimeprep.CodexTurnCapabilityRejected, Reason: "computer use requires explicit session-scoped authorization"}, nil
-	}
-	identity, ok := runtimeprep.CodexTuttiTurnSkillForTurnSemantic(semantic)
-	if !ok {
-		return CodexTurnCapabilityEnsureResult{Disposition: runtimeprep.CodexTurnCapabilityRejected}, nil
-	}
-	nativeSemantic, _ := runtimeprep.CodexNativeCapabilityForTurnSemantic(semantic)
-	return CodexTurnCapabilityEnsureResult{
-		Disposition: runtimeprep.CodexTurnCapabilityAlreadyBound,
-		PromptItem:  runtimeprep.CodexTurnCapabilityPromptItem{Type: "skill", Name: identity.Name, Path: "/runtime/skills/" + identity.Name + "/SKILL.md"},
-		Binding:     runtimeprep.CodexTurnCapabilityBinding{Semantic: nativeSemantic, Authorized: nativeSemantic != runtimeprep.CodexNativeCapabilityComputer || consent == runtimeprep.CodexTurnCapabilityConsentExplicitSession || codexComputerAuthorized(session.RuntimeContext), Consent: consent},
 	}, nil
 }
 func (a *turnCapabilityRuntimeAdapter) Close(context.Context, Session) error {

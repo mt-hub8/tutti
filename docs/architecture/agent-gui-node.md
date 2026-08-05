@@ -1263,28 +1263,22 @@ any field turns a valid UI intent into a stale or semantically mismatched
 response. Tutti Desktop always advertises the Tutti Mode host capability;
 historical `lab.tuttiMode` preference values do not hide or disable it.
 
-For the exact built-in Codex target, this activation is also the daemon-owned
-backend selector for native capability slash commands: active selects the
-existing Tutti Browser/Computer plan, while inactive selects the Codex-native
-plan. The daemon freezes that product plan only after Host has claimed the
-submission and acquired the exact Session lock, then passes it directly to the
-single capability Ensure before Exec. The selector never probes native
-availability to change backend. Computer capability continues to require the
-session-scoped explicit consent gate; Sites has no Tutti equivalent and remains
-unavailable in that mode.
-For one admitted Turn, inactive mode contributes exactly one verified
-`plugin://` structured mention for the official bundle; active mode contributes
-exactly one App Server-returned, session-managed Tutti Browser/Computer
-structured Skill input. Those files may coexist in `CODEX_HOME`, but automatic
-Tutti handoff policy and capability env markers are removed, so no Session
-setting, prompt prefix, or prior Turn can leak one backend into the other.
-The current client/thread remains in place for both paths; a missing managed
-Tutti Skill gets one runtime-only `skills/list(forceReload=true)` recheck and
-then fails closed as setup-required rather than writing a Skill or replacing
-the runtime.
-The GUI may present descriptors and legacy commands, but it must re-evaluate
-mode when confirming a pending native consent; canonical daemon activation is
-the final authority.
+For the exact built-in Codex target, Tutti Mode is not a capability backend
+selector. Browser, Computer, and Sites always use the official `plugin://`
+structured mention for the native bundle. The daemon freezes that native plan
+only after Host has claimed the submission and acquired the exact Session lock,
+then passes it directly to the single capability Ensure before Exec. Computer
+capability continues to require the session-scoped explicit consent gate.
+Tutti Mode may still shape ordinary Tutti workflow orchestration, but cannot
+turn a plugin Turn into a managed Skill input or enter capability admission.
+Its immutable snapshot travels only with the eventual runtime Exec.
+
+The current client/thread remains in place for every mode. Native capability
+admission verifies only that this is the current runtime and, for Computer,
+the explicit session consent. It passes the official structured mention to the
+App Server without making plugin discovery, MCP/App status, or a configuration
+reload a delivery prerequisite; an App Server delivery failure stays attached
+to that one Turn rather than replacing the runtime.
 
 For that same exact target, composer options may contain a separate
 `reservedTurnCapabilityAliases` projection. It reserves a provider-authored

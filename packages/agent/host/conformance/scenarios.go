@@ -138,7 +138,7 @@ func SessionForkScenarios() []SessionForkScenario {
 func TurnCapabilityScenarios() []TurnCapabilityScenario {
 	return []TurnCapabilityScenario{
 		{Name: "initial session ensures turn capability before initial exec", run: runInitialSessionTurnCapability},
-		{Name: "rejected initial turn capability does not exec", run: runRejectedInitialTurnCapabilityDoesNotExec},
+		{Name: "rejected initial turn capability retains session for follow-up", run: runRejectedInitialTurnCapabilityDoesNotExec},
 		{Name: "existing session ensures turn capability before exec", run: runExistingSessionTurnCapability},
 		{Name: "admission plan reaches ensure before exec", run: runTurnCapabilityAdmissionPlan},
 		{Name: "durable admission plan fences retry after ensure uncertainty", run: runDurableTurnCapabilityAdmissionPlan},

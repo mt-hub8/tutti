@@ -48,7 +48,6 @@ type codexTurnCapabilityRuntime interface {
 
 type codexTurnCapabilityLiveReadiness interface {
 	EnsureLiveCodexTurnCapability(context.Context, Session, string, runtimeprep.CodexTurnCapabilityConsent) (CodexTurnCapabilityEnsureResult, error)
-	EnsureLiveCodexTuttiTurnCapability(context.Context, Session, string, runtimeprep.CodexTurnCapabilityConsent) (CodexTurnCapabilityEnsureResult, error)
 }
 
 // EnsureCodexTurnCapability checks only the current Codex runtime. It never
@@ -84,8 +83,6 @@ func (c *Controller) EnsureCodexTurnCapability(ctx context.Context, input CodexT
 			return CodexTurnCapabilityEnsureResult{Disposition: runtimeprep.CodexTurnCapabilityRejected, Reason: "unknown Codex turn capability"}, nil
 		}
 		result, err = live.EnsureLiveCodexTurnCapability(ctx, session, nativeSemantic, input.Consent)
-	case "tutti":
-		result, err = live.EnsureLiveCodexTuttiTurnCapability(ctx, session, input.Semantic, input.Consent)
 	default:
 		return CodexTurnCapabilityEnsureResult{Disposition: runtimeprep.CodexTurnCapabilityRejected, Reason: "unknown capability delivery plan"}, nil
 	}

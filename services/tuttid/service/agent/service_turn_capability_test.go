@@ -237,7 +237,7 @@ func TestSendInputNativeCapabilityBindsAndAcceptsItsExecutionSnapshot(t *testing
 	}
 }
 
-func TestSendInputActiveTuttiModeRoutesBrowserThroughOneTuttiEnsure(t *testing.T) {
+func TestSendInputActiveTuttiModeRoutesBrowserThroughOneNativeEnsure(t *testing.T) {
 	t.Parallel()
 	service, runtime := newTurnCapabilityService(t, "codex")
 	service.TuttiModeActivations = &fakeTuttiModeActivationCoordinator{
@@ -250,12 +250,71 @@ func TestSendInputActiveTuttiModeRoutesBrowserThroughOneTuttiEnsure(t *testing.T
 	if err != nil {
 		t.Fatalf("SendInput: %v", err)
 	}
-	if len(runtime.ensureCalls) != 1 || runtime.ensureCalls[0].Plan.Key != string(codexTurnBackendTutti) || len(runtime.updateSettingsCalls) != 0 || len(runtime.execCalls) != 1 {
-		t.Fatalf("active Tutti Browser must use its one Turn plan without settings mutation: capability=%#v settings=%#v exec=%#v", runtime.ensureCalls, runtime.updateSettingsCalls, runtime.execCalls)
+	if len(runtime.ensureCalls) != 1 || runtime.ensureCalls[0].Plan.Key != codexNativeTurnCapabilityPlanKey || len(runtime.updateSettingsCalls) != 0 || len(runtime.execCalls) != 1 {
+		t.Fatalf("active Tutti Browser must use the native Turn plan without settings mutation: capability=%#v settings=%#v exec=%#v", runtime.ensureCalls, runtime.updateSettingsCalls, runtime.execCalls)
 	}
 }
 
-func TestSendInputActiveTuttiModeRejectsSitesBeforeEnsureOrExec(t *testing.T) {
+// Tutti Mode never changes a Codex capability backend. Switching it between
+// Turns must neither rewrite session settings nor resume/replace the loaded
+// runtime, and every capability Turn remains native.
+func TestSendInputKeepsCodexCapabilityNativeAcrossTuttiModeChanges(t *testing.T) {
+	t.Parallel()
+	service, runtime := newTurnCapabilityService(t, "codex")
+	activation := &fakeTuttiModeActivationCoordinator{
+		current: activationSnapshot("activation-1", "revision-1", 1, tuttimodeactivationbiz.StateInactive, tuttimodeactivationbiz.SourceBadgeRemove),
+	}
+	service.TuttiModeActivations = activation
+
+	sendBrowser := func(clientSubmitID string) {
+		t.Helper()
+		result, err := service.SendInput(context.Background(), "workspace-1", "session-1", SendInput{
+			ClientSubmitID: clientSubmitID,
+			Content:        []PromptContentBlock{{Type: "text", Text: "open browser"}},
+			TurnCapabilityInvocation: &agenthost.TurnCapabilityInvocation{
+				Semantic: runtimeprep.CodexTurnCapabilitySemanticBrowserUse,
+			},
+		})
+		if err != nil {
+			t.Fatalf("SendInput(%q): %v", clientSubmitID, err)
+		}
+		if result.Session.ID != "session-1" || result.Session.ProviderSessionID != "provider-session-1" {
+			t.Fatalf("SendInput(%q) session = %#v, want existing runtime session", clientSubmitID, result.Session)
+		}
+	}
+
+	sendBrowser("submit-native-before")
+	activation.current = activationSnapshot("activation-1", "revision-2", 2, tuttimodeactivationbiz.StateActive, tuttimodeactivationbiz.SourceSlashCommand)
+	sendBrowser("submit-native-while-tutti")
+	activation.current = activationSnapshot("activation-1", "revision-3", 3, tuttimodeactivationbiz.StateInactive, tuttimodeactivationbiz.SourceBadgeRemove)
+	sendBrowser("submit-native-after")
+
+	if got, want := len(runtime.ensureCalls), 3; got != want {
+		t.Fatalf("Ensure calls = %d, want %d", got, want)
+	}
+	plans := []string{
+		runtime.ensureCalls[0].Plan.Key,
+		runtime.ensureCalls[1].Plan.Key,
+		runtime.ensureCalls[2].Plan.Key,
+	}
+	wantPlans := []string{codexNativeTurnCapabilityPlanKey, codexNativeTurnCapabilityPlanKey, codexNativeTurnCapabilityPlanKey}
+	for index, want := range wantPlans {
+		if plans[index] != want {
+			t.Fatalf("Ensure plan[%d] = %q, want %q (all=%#v)", index, plans[index], want, plans)
+		}
+	}
+	if got := len(runtime.resumeCalls); got != 0 {
+		t.Fatalf("backend switching resumed/replaced the loaded runtime %d times", got)
+	}
+	if got := len(runtime.updateSettingsCalls); got != 0 {
+		t.Fatalf("backend switching mutated session settings %d times", got)
+	}
+	if got := len(runtime.execCalls); got != 3 {
+		t.Fatalf("Exec calls = %d, want one for each turn", got)
+	}
+}
+
+func TestSendInputActiveTuttiModeRoutesSitesThroughNativeEnsure(t *testing.T) {
 	t.Parallel()
 	service, runtime := newTurnCapabilityService(t, "codex")
 	service.TuttiModeActivations = &fakeTuttiModeActivationCoordinator{
@@ -265,11 +324,11 @@ func TestSendInputActiveTuttiModeRejectsSitesBeforeEnsureOrExec(t *testing.T) {
 		ClientSubmitID: "submit-tutti-sites", Content: []PromptContentBlock{{Type: "text", Text: "build a site"}},
 		TurnCapabilityInvocation: &agenthost.TurnCapabilityInvocation{Semantic: runtimeprep.CodexTurnCapabilitySemanticSites},
 	})
-	if !errors.Is(err, ErrInvalidArgument) {
-		t.Fatalf("SendInput error = %v, want invalid argument", err)
+	if err != nil {
+		t.Fatalf("SendInput error = %v", err)
 	}
-	if len(runtime.ensureCalls) != 0 || len(runtime.updateSettingsCalls) != 0 || len(runtime.execCalls) != 0 {
-		t.Fatalf("Tutti Sites had effects: native=%#v settings=%#v exec=%#v", runtime.ensureCalls, runtime.updateSettingsCalls, runtime.execCalls)
+	if len(runtime.ensureCalls) != 1 || runtime.ensureCalls[0].Plan.Key != codexNativeTurnCapabilityPlanKey || len(runtime.updateSettingsCalls) != 0 || len(runtime.execCalls) != 1 {
+		t.Fatalf("active Tutti Sites must use native capability: native=%#v settings=%#v exec=%#v", runtime.ensureCalls, runtime.updateSettingsCalls, runtime.execCalls)
 	}
 }
 
@@ -376,8 +435,8 @@ func TestCreateDefersComputerConsentToHostCapabilityEnsure(t *testing.T) {
 	if prepareInput.AuthorizeCodexNativeComputerUse {
 		t.Fatal("service runtime preparation must not authorize Computer Use before the Host claim")
 	}
-	if len(activation.setInputs) != 0 {
-		t.Fatalf("native create must not persist a Tutti activation: %#v", activation.setInputs)
+	if len(activation.setInputs) != 1 || activation.setInputs[0].State != tuttimodeactivationbiz.StateInactive {
+		t.Fatalf("native create must persist its independent Tutti activation: %#v", activation.setInputs)
 	}
 	if len(runtime.ensureCalls) != 1 ||
 		runtime.ensureCalls[0].Invocation.Semantic != runtimeprep.CodexTurnCapabilitySemanticComputerUse ||
@@ -419,19 +478,22 @@ func TestCreateActiveTuttiCapabilityCleansActivationOnlyBeforeDelivery(t *testin
 		return found
 	}
 
-	t.Run("recovery abandons snapshot and activation", func(t *testing.T) {
+	t.Run("recovery abandons the turn snapshot and retains the session activation", func(t *testing.T) {
 		service, runtime, activation := newService(t)
 		runtime.ensureResult = agenthost.RuntimeTurnCapabilityResult{Disposition: agenthost.RuntimeTurnCapabilityRejected, Outcome: &agenthost.RuntimeTurnCapabilityOutcome{NextAction: agenthost.RuntimeTurnCapabilityNextActionSetup, ReasonCode: "plugin_not_installed"}}
-		_, err := service.Create(context.Background(), "workspace-1", newInput("create-recovery", "submit-recovery"))
+		created, err := service.CreateWithResult(context.Background(), "workspace-1", newInput("create-recovery", "submit-recovery"))
 		var recovery *TurnCapabilityRecoveryError
 		if !errors.As(err, &recovery) {
 			t.Fatalf("Create error = %v, want recovery", err)
 		}
-		if activation.boundTurnID == "" || activation.abandonedTurnID != activation.boundTurnID || len(activation.deleteSessionIDs) != 1 {
+		if created.Session.ID != "create-recovery" {
+			t.Fatalf("CreateWithResult session = %#v, want retained session", created.Session)
+		}
+		if activation.boundTurnID == "" || activation.abandonedTurnID != activation.boundTurnID || len(activation.deleteSessionIDs) != 0 {
 			t.Fatalf("activation cleanup = %#v", activation)
 		}
-		if _, found := runtime.Session("workspace-1", "create-recovery"); found || claimExists(t, service, "create-recovery", "submit-recovery") {
-			t.Fatalf("recovery retained session or claim: session=%v claim=%v", found, claimExists(t, service, "create-recovery", "submit-recovery"))
+		if _, found := runtime.Session("workspace-1", "create-recovery"); !found || claimExists(t, service, "create-recovery", "submit-recovery") {
+			t.Fatalf("recovery session or claim state: session=%v claim=%v", found, claimExists(t, service, "create-recovery", "submit-recovery"))
 		}
 	})
 

@@ -100,7 +100,7 @@ func (h *Host) CreateSession(ctx context.Context, workspaceID string, input Crea
 				WorkspaceID: workspaceID, AgentSessionID: input.AgentSessionID,
 				TurnID: input.TurnID, ClientSubmitID: input.ClientSubmitID, Initial: true,
 				AgentTargetID: input.AgentTargetID, Provider: input.Provider,
-				ProviderTargetRef: cloneMap(input.ProviderTargetRef), RuntimeContext: cloneMap(input.RuntimeContext), TuttiModeSnapshot: input.TuttiModeSnapshot,
+				ProviderTargetRef: cloneMap(input.ProviderTargetRef), RuntimeContext: cloneMap(input.RuntimeContext),
 				Invocation: *invocation,
 			})
 			h.observeStep(ctx, "session_create", "turn_capability_admitted", input.AgentSessionID, input.Provider, startedAt, err)
@@ -242,11 +242,24 @@ func (h *Host) CreateSession(ctx context.Context, workspaceID string, input Crea
 		switch capabilityResult.Disposition {
 		case RuntimeTurnCapabilityRejected:
 			h.observeStep(ctx, "session_create", "turn_capability_ensured", session.ID, session.Provider, startedAt, ErrTurnCapabilityRejected)
-			return CreateSessionResult{}, cleanup(turnCapabilityOutcomeError(ErrTurnCapabilityRejected, capabilityResult.Outcome), true, true)
+			if capabilityResult.Outcome == nil || !validTurnCapabilityOutcome(*capabilityResult.Outcome) {
+				return CreateSessionResult{}, cleanup(ErrTurnCapabilityRejected, true, true)
+			}
+			// The runtime and canonical Session now exist. A pre-Exec capability
+			// rejection rejects only the initial Turn: rolling the Session back
+			// would leave an already-observable Session identity dangling and make
+			// a later retry or mode change fail as "session not found".
+			return CreateSessionResult{Session: session, Canonical: canonicalSession, TurnID: strings.TrimSpace(input.TurnID)}, turnCapabilityOutcomeError(ErrTurnCapabilityRejected, capabilityResult.Outcome)
 		case RuntimeTurnCapabilityUnknown:
 			if capabilityResult.Retryable {
 				h.observeStep(ctx, "session_create", "turn_capability_ensured", session.ID, session.Provider, startedAt, ErrTurnCapabilityUnavailable)
-				return CreateSessionResult{}, cleanup(turnCapabilityOutcomeError(ErrTurnCapabilityUnavailable, capabilityResult.Outcome), true, true)
+				if capabilityResult.Outcome == nil || !validTurnCapabilityOutcome(*capabilityResult.Outcome) {
+					return CreateSessionResult{}, cleanup(ErrTurnCapabilityUnavailable, true, true)
+				}
+				// This is also pre-Exec and independently retryable. Keep the
+				// initialized Session for the same reason as a rejection above; the
+				// deferred claim cleanup releases only the unsubmitted initial Turn.
+				return CreateSessionResult{Session: session, Canonical: canonicalSession, TurnID: strings.TrimSpace(input.TurnID)}, turnCapabilityOutcomeError(ErrTurnCapabilityUnavailable, capabilityResult.Outcome)
 			}
 			h.observeStep(ctx, "session_create", "turn_capability_ensured", session.ID, session.Provider, startedAt, ErrSubmitDeliveryUnknown)
 			claimPending = false
@@ -574,7 +587,7 @@ func (h *Host) SendInput(ctx context.Context, ref SessionRef, input SendInput) (
 				WorkspaceID: ref.WorkspaceID, AgentSessionID: ref.AgentSessionID,
 				TurnID: input.TurnID, ClientSubmitID: input.ClientSubmitID,
 				AgentTargetID: canonical.AgentTargetID, Provider: canonical.Provider,
-				RuntimeContext: cloneMap(canonical.InternalRuntimeContext), TuttiModeSnapshot: input.TuttiModeSnapshot, Invocation: *invocation,
+				RuntimeContext: cloneMap(canonical.InternalRuntimeContext), Invocation: *invocation,
 			})
 			h.observeStep(ctx, "message_send", "turn_capability_admitted", ref.AgentSessionID, canonical.Provider, startedAt, err)
 			if err != nil {
